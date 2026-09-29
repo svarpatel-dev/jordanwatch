@@ -2,11 +2,23 @@
 // Takes results from the other files and shows them; does no data work itself.
 
 const RISK_LABELS = {
-  safe: "🟢 Low Risk",
+  low: "🟢 Low Risk",
   caution: "🟡 Caution",
   high: "🔴 High Risk",
+  limited: "🔵 Limited Data Available",
   "no-data": "⚪ No Data Available"
 };
+
+// How to show each reading, in display order. Readings a station
+// doesn't have are skipped.
+const READING_DISPLAY = [
+  { key: "tempC", label: "Temp", unit: "°C" },
+  { key: "doMgL", label: "DO", unit: " mg/L" },
+  { key: "ph", label: "pH", unit: "" },
+  { key: "turbidityFnu", label: "Turbidity", unit: " FNU" },
+  { key: "flowCfs", label: "Flow", unit: " cubic ft/sec" },
+  { key: "lakeLevelFt", label: "Lake level", unit: " ft above sea level" }
+];
 
 // Headings for the groups in the station dropdown, in display order
 const TIER_LABELS = {
@@ -42,14 +54,39 @@ export function showLoading(station) {
 
 export function showResult(station, risk, readings) {
   const statusEl = document.getElementById("status");
+
+  // One line per reading this station actually has
+  const readingLines = READING_DISPLAY
+    .filter(r => readings[r.key])
+    .map(r => `${r.label}: ${readings[r.key].value}${r.unit}`)
+    .join("<br>");
+
+  // Time of the newest reading, e.g. "9/28/2026, 4:15 PM"
+  const times = Object.values(readings)
+    .filter(r => r)
+    .map(r => new Date(r.timestamp).getTime());
+  const latestTime = times.length > 0
+    ? new Date(Math.max(...times)).toLocaleString()
+    : null;
+
   statusEl.innerHTML = `
     <strong>${station.name}</strong> (USGS ${station.id})<br>
-    <strong>${RISK_LABELS[risk.level]}</strong>
-    ${risk.isOutdated ? '<br><em>⚠️ Reading is 3–24h old</em>' : ''}
+    <strong>${RISK_LABELS[risk.level]}</strong><br>
+    ${risk.reason}
+    ${risk.note ? `<br><em>ℹ️ ${risk.note}</em>` : ""}
+    ${risk.isOutdated ? "<br><em>⚠️ Reading is 3–24h old</em>" : ""}
     <br><br>
-    Temp: ${readings.tempC ? readings.tempC.value + "°C" : "—"}<br>
-    DO: ${readings.doMgL ? readings.doMgL.value + " mg/L" : "—"}<br>
-    pH: ${readings.ph ? readings.ph.value : "—"}<br>
-    Turbidity: ${readings.turbidityFnu ? readings.turbidityFnu.value + " FNU" : "—"}
+    ${readingLines || "No recent readings from this station."}
+    ${latestTime ? `<br><br><small>Latest reading: ${latestTime}</small>` : ""}
+  `;
+}
+
+// Shown when loading a station fails (bug 4).
+export function showError(station, message) {
+  const statusEl = document.getElementById("status");
+  statusEl.innerHTML = `
+    <strong>${station.name}</strong> (USGS ${station.id})<br>
+    ⚠️ Couldn't load data: ${message}<br>
+    Try again in a few minutes.
   `;
 }
