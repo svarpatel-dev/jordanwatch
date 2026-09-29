@@ -13,7 +13,14 @@ const PARAMS = {
 
 export async function fetchStationData(stationId) {
   const url = `https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${stationId}&period=P1D`;
-  const response = await fetch(url);
+  let response = await fetch(url);
+
+  // Bug 7 fix: USGS sometimes returns a temporary 502/503/504 for a few
+  // seconds. Wait 2 seconds and try once more before giving up.
+  if ([502, 503, 504].includes(response.status)) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    response = await fetch(url);
+  }
 
   // Bug 3 fix: fetch() only fails on network errors. A 404 or 500 still
   // "succeeds", so we have to check the status ourselves.
