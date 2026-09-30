@@ -1,0 +1,42 @@
+{
+  "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
+  "updatedAt": "2026-09-30T22:55:22+00:00",
+  "points": [
+    {
+      "name": "North",
+      "lat": 35.81,
+      "lng": -78.99,
+      "status": "ok",
+      "imageDate": "2026-09-29",
+      "newestImageDate": "2026-09-29",
+      "cellsPerMl": 772681,
+      "maxCellsPerMl": 963829,
+      "validPixels": 6,
+      "frequency": "Daily"
+    },
+    {
+      "name": "Middle",
+      "lat": 35.75,
+      "lng": -79.01,
+      "status": "ok",
+      "imageDate": "2026-09-26",
+      "newestImageDate": "2026-09-26",
+      "cellsPerMl": 277971,
+      "maxCellsPerMl": 751623,
+      "validPixels": 4,
+      "frequency": "Daily"
+    },
+    {
+      "name": "South",
+      "lat": 35.7,
+      "lng": -79.03,
+      "status": "ok",
+      "imageDate": "2026-09-26",
+      "newestImageDate": "2026-09-26",
+      "cellsPerMl": 183654,
+      "maxCellsPerMl": 205116,
+      "validPixels": 4,
+      "frequency": "Daily"
+    }
+  ]
+}
