@@ -1,0 +1,37 @@
+# Fetches EPA CyAN satellite data for Jordan Lake every 6 hours and
+# commits cyan.json when it changes, so the live app always has fresh data.
+name: Fetch CyAN satellite data
+
+on:
+  schedule:
+    # Every 6 hours, at 17 minutes past (GitHub is busiest at the top of the hour)
+    - cron: "17 */6 * * *"
+  # Adds a "Run workflow" button on GitHub for manual runs
+  workflow_dispatch:
+
+# Lets this workflow push the updated cyan.json back to the repo
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch the latest satellite data
+        run: python scripts/fetch_cyan.py
+
+      - name: Commit cyan.json if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cyan.json
+          git diff --cached --quiet || git commit -m "Update CyAN satellite data"
+          git push
