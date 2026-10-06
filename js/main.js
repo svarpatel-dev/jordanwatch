@@ -1,26 +1,55 @@
 // Entry point: connects the other modules.
-// Load the Jordan Lake satellite data → fill the station picker → load the
-// first station → reload whenever the pick changes.
+// Load the Jordan Lake data and work out each area's verdict → fill the
+// station picker → load the first station → reload whenever the pick changes.
 
 import { STATIONS } from "./stations.js";
+import { AREAS } from "./areas.js";
 import { fetchStationData, extractAllReadings } from "./usgs.js";
 import { computeRisk } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
+import { fetchWind } from "./weather.js";
+import { computeLakeVerdicts } from "./lake.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showSatellite, showSatelliteError } from "./ui.js";
 
+// The USGS station at Jordan Lake's dam, which measures the lake level
+const DAM_STATION_ID = "02098197";
+
 const picker = document.getElementById("station-picker");
 
-// Jordan Lake satellite data (cyan.json, refreshed by GitHub Actions).
-async function loadSatellite() {
+// Jordan Lake: satellite data, lake level and wind, combined into a
+// verdict for each area.
+async function loadLake() {
   try {
-    const cyan = await fetchCyanData();
-    console.log("Satellite data:", cyan);
+    // Fetch all three at the same time. Lake level and wind are extras:
+    // if one of them fails, the verdict still works without it.
+    const [cyan, lakeLevel, wind] = await Promise.all([
+      fetchCyanData(),
+      fetchLakeLevel().catch(error => {
+        console.error("Failed to load lake level", error);
+        return null;
+      }),
+      fetchWind().catch(error => {
+        console.error("Failed to load wind", error);
+        return null;
+      })
+    ]);
+
+    const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind);
+    console.log("Lake verdicts:", lake);
+    console.table(lake.areas.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
+
     showSatellite(cyan);
   } catch (error) {
     console.error("Failed to load satellite data", error);
     showSatelliteError(error.message);
   }
+}
+
+// The latest lake level reading at the dam
+async function fetchLakeLevel() {
+  const data = await fetchStationData(DAM_STATION_ID);
+  return extractAllReadings(data).lakeLevelFt;
 }
 
 async function run(station) {
@@ -49,7 +78,7 @@ async function run(station) {
   }
 }
 
-loadSatellite();
+loadLake();
 
 fillStationPicker(STATIONS);
 
