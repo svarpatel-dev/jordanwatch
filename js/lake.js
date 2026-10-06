@@ -57,15 +57,28 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind) {
       cellsPerMl: point?.cellsPerMl ?? null,
       imageDate: point?.imageDate ?? null,
       imageAgeDays: point?.imageAgeDays ?? null,
+      frequency: point?.frequency ?? null,
       noRecentSatellite: signals[0].noRecentSatellite,
       borrowedFrom: borrowed ? point?.name ?? null : null,
       reasons: signals
     };
   });
 
+  // Best spots first: by verdict, then by satellite reading (lower is better)
+  const ranked = [...verdicts].sort(compareAreas);
+
+  // "Go here instead" (decided Oct 3): for each area, the best-ranked area
+  // with a better verdict, if there is one
+  for (const verdict of verdicts) {
+    const better = ranked.find(other => LEVELS.indexOf(other.level) < LEVELS.indexOf(verdict.level));
+    verdict.goInstead = better ? { id: better.id, name: better.name, level: better.level } : null;
+  }
+
   return {
     areas: verdicts,
-    intake: pointsById["intake"] ?? null
+    ranked,
+    intake: pointsById["intake"] ?? null,
+    checkedAt: cyan.updatedAt
   };
 }
 
@@ -162,6 +175,14 @@ function windSignal(area, point, wind) {
 }
 
 // --- Helpers ---
+
+// Sort order for "best spots": better verdict first; within the same
+// verdict, the lower satellite reading first (no reading goes last)
+function compareAreas(a, b) {
+  const byLevel = LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level);
+  if (byLevel !== 0) return byLevel;
+  return (a.cellsPerMl ?? Infinity) - (b.cellsPerMl ?? Infinity);
+}
 
 // The worst of a list of levels, e.g. ["low", "avoid"] → "avoid"
 function worstLevel(levels) {

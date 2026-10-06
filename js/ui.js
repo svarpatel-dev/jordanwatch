@@ -34,6 +34,39 @@ const FREQUENCY_LABELS = {
   Weekly: "weekly estimate"
 };
 
+// Lake verdict labels (decided Oct 4: never "OK" or "Safe")
+const VERDICT_LABELS = {
+  avoid: "🔴 Avoid",
+  caution: "🟡 Caution",
+  low: "🟢 Low Risk"
+};
+
+// What to do at each verdict (decided Oct 5; based on CDC, NC DHHS and
+// NC State Parks guidance)
+const ACTIVITIES = {
+  avoid: {
+    suggested: "Picnics, trails, activities away from the water",
+    notSuggested: "Swimming, wading, tubing, water skiing, boating or paddling, touching the water",
+    pets: "Keep pets away from the water and shoreline",
+    families: "Keep kids out of the water"
+  },
+  caution: {
+    suggested: "Boating, kayaking, paddleboarding, fishing, shore activities",
+    notSuggested: "Swimming or wading. Don't swallow lake water, and rinse off with tap water after any contact",
+    pets: "Keep pets out of the water",
+    families: "No swimming for kids today"
+  },
+  low: {
+    suggested: "Swimming at designated beaches, boating, fishing",
+    always: "Stay away from any scum or discolored water, and rinse off after swimming",
+    pets: "Leashed only, and not on swim beaches (park rule)",
+    families: "Low risk for families"
+  }
+};
+
+// Extra line for areas without a recent satellite reading (decided Oct 5)
+const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
+
 // Builds the dropdown's options from the STATIONS list, grouped by tier.
 export function fillStationPicker(stations) {
   const picker = document.getElementById("station-picker");
@@ -98,33 +131,65 @@ export function showError(station, message) {
   `;
 }
 
-// Lists each lake point's latest satellite reading. A plain first
-// version: verdicts and area cards come with lake.js.
-export function showSatellite(cyan) {
+// The Jordan Lake section: a summary line, then every area ranked best
+// first. Each area is a <details> box: tap its name to open its card.
+export function showLake(lake) {
   const lakeEl = document.getElementById("lake");
 
-  const rows = cyan.points.map(point => {
-    const name = point.kind === "intake"
-      ? `${point.name} <em>(drinking-water intake, context only)</em>`
-      : point.name;
-
-    if (point.status !== "ok") {
-      return `<li><strong>${name}</strong>: no satellite reading available</li>`;
-    }
-
-    const frequency = FREQUENCY_LABELS[point.frequency] || "estimate";
-    return `
-      <li>
-        <strong>${name}</strong>: ${point.cellsPerMl.toLocaleString()} cells/mL<br>
-        <small>Satellite image: ${point.imageDate} (${describeAge(point.imageAgeDays)}), ${frequency}</small>
-      </li>
-    `;
-  }).join("");
+  // How many areas got each verdict, e.g. { avoid: 8, caution: 2, low: 0 }
+  const counts = { avoid: 0, caution: 0, low: 0 };
+  for (const area of lake.areas) {
+    counts[area.level] += 1;
+  }
 
   lakeEl.innerHTML = `
-    <p>Cyanobacteria estimates from EPA CyAN satellite data</p>
-    <ul>${rows}</ul>
-    <small>Data last checked: ${new Date(cyan.updatedAt).toLocaleString()}</small>
+    <p><strong>Today at Jordan Lake:</strong>
+      ${counts.avoid} Avoid · ${counts.caution} Caution · ${counts.low} Low Risk</p>
+    <h3>Best spots today</h3>
+    <p><small>Tap an area to see why and what to do.</small></p>
+    ${lake.ranked.map(areaCard).join("")}
+    ${intakeNote(lake.intake)}
+    <p><small>Satellite estimates from EPA CyAN, last checked
+      ${new Date(lake.checkedAt).toLocaleString()}. Not an official advisory.</small></p>
+  `;
+}
+
+// One area's card: verdict, why, what to do, and where to go instead
+function areaCard(area) {
+  const activities = ACTIVITIES[area.level];
+  const reasons = area.reasons.map(r => `<li>${r.text}</li>`).join("");
+
+  const image = area.imageDate
+    ? `Satellite image: ${area.imageDate} (${describeAge(area.imageAgeDays)}), ${FREQUENCY_LABELS[area.frequency] || "estimate"}`
+    : "No satellite image";
+
+  return `
+    <details>
+      <summary><strong>${area.name}</strong>: ${VERDICT_LABELS[area.level]}</summary>
+      <p><small>${image}</small></p>
+      ${area.borrowedFrom ? `<p><em>No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</em></p>` : ""}
+      <p><strong>Why:</strong></p>
+      <ul>${reasons}</ul>
+      <p>
+        <strong>Suggested:</strong> ${activities.suggested}<br>
+        ${activities.notSuggested ? `<strong>Not suggested:</strong> ${activities.notSuggested}<br>` : ""}
+        ${activities.always ? `<strong>Always:</strong> ${activities.always}<br>` : ""}
+        🐕 ${activities.pets} · 👨‍👩‍👧 ${activities.families}
+      </p>
+      ${area.noRecentSatellite ? `<p><em>${NO_RECENT_SATELLITE}</em></p>` : ""}
+      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${VERDICT_LABELS[area.goInstead.level]})</p>` : ""}
+    </details>
+  `;
+}
+
+// The drinking-water intake: context only, never a verdict (decided Oct 3)
+function intakeNote(intake) {
+  if (!intake || intake.status !== "ok") return "";
+  return `
+    <p><small>💧 Near the Cary/Apex drinking-water intake: about
+      ${intake.cellsPerMl.toLocaleString()} cells/mL (satellite image ${intake.imageDate}).
+      Context only: this water is treated before it reaches taps, so this is
+      not a tap-water rating.</small></p>
   `;
 }
 
@@ -135,11 +200,11 @@ function describeAge(days) {
   return `${days} days old`;
 }
 
-// Shown when cyan.json can't be loaded.
-export function showSatelliteError(message) {
+// Shown when the Jordan Lake data can't be loaded.
+export function showLakeError(message) {
   const lakeEl = document.getElementById("lake");
   lakeEl.innerHTML = `
-    ⚠️ Couldn't load satellite data: ${message}<br>
+    ⚠️ Couldn't load Jordan Lake data: ${message}<br>
     Try again in a few minutes.
   `;
 }

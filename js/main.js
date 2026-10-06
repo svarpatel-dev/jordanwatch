@@ -10,7 +10,7 @@ import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
 import { fillStationPicker, showLoading, showResult, showError,
-         showSatellite, showSatelliteError } from "./ui.js";
+         showLake, showLakeError } from "./ui.js";
 
 // The USGS station at Jordan Lake's dam, which measures the lake level
 const DAM_STATION_ID = "02098197";
@@ -37,12 +37,12 @@ async function loadLake() {
 
     const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind);
     console.log("Lake verdicts:", lake);
-    console.table(lake.areas.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
+    console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
 
-    showSatellite(cyan);
+    showLake(lake);
   } catch (error) {
-    console.error("Failed to load satellite data", error);
-    showSatelliteError(error.message);
+    console.error("Failed to load Jordan Lake data", error);
+    showLakeError(error.message);
   }
 }
 
