@@ -27,6 +27,13 @@ const TIER_LABELS = {
   limited: "Limited data (Jordan Lake area)"
 };
 
+// How to describe each kind of satellite estimate. CyAN makes daily
+// estimates from single images and weekly ones that combine a week of images.
+const FREQUENCY_LABELS = {
+  Daily: "daily estimate",
+  Weekly: "weekly estimate"
+};
+
 // Builds the dropdown's options from the STATIONS list, grouped by tier.
 export function fillStationPicker(stations) {
   const picker = document.getElementById("station-picker");
@@ -87,6 +94,52 @@ export function showError(station, message) {
   statusEl.innerHTML = `
     <strong>${station.name}</strong> (USGS ${station.id})<br>
     ⚠️ Couldn't load data: ${message}<br>
+    Try again in a few minutes.
+  `;
+}
+
+// Lists each lake point's latest satellite reading. A plain first
+// version: verdicts and area cards come with lake.js.
+export function showSatellite(cyan) {
+  const lakeEl = document.getElementById("lake");
+
+  const rows = cyan.points.map(point => {
+    const name = point.kind === "intake"
+      ? `${point.name} <em>(drinking-water intake, context only)</em>`
+      : point.name;
+
+    if (point.status !== "ok") {
+      return `<li><strong>${name}</strong>: no satellite reading available</li>`;
+    }
+
+    const frequency = FREQUENCY_LABELS[point.frequency] || "estimate";
+    return `
+      <li>
+        <strong>${name}</strong>: ${point.cellsPerMl.toLocaleString()} cells/mL<br>
+        <small>Satellite image: ${point.imageDate} (${describeAge(point.imageAgeDays)}), ${frequency}</small>
+      </li>
+    `;
+  }).join("");
+
+  lakeEl.innerHTML = `
+    <p>Cyanobacteria estimates from EPA CyAN satellite data</p>
+    <ul>${rows}</ul>
+    <small>Data last checked: ${new Date(cyan.updatedAt).toLocaleString()}</small>
+  `;
+}
+
+// "today", "1 day old", "5 days old"
+function describeAge(days) {
+  if (days === 0) return "today";
+  if (days === 1) return "1 day old";
+  return `${days} days old`;
+}
+
+// Shown when cyan.json can't be loaded.
+export function showSatelliteError(message) {
+  const lakeEl = document.getElementById("lake");
+  lakeEl.innerHTML = `
+    ⚠️ Couldn't load satellite data: ${message}<br>
     Try again in a few minutes.
   `;
 }

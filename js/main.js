@@ -1,12 +1,27 @@
 // Entry point: connects the other modules.
-// Fill the station picker → load the first station → reload whenever the pick changes.
+// Load the Jordan Lake satellite data → fill the station picker → load the
+// first station → reload whenever the pick changes.
 
 import { STATIONS } from "./stations.js";
 import { fetchStationData, extractAllReadings } from "./usgs.js";
 import { computeRisk } from "./risk.js";
-import { fillStationPicker, showLoading, showResult, showError } from "./ui.js";
+import { fetchCyanData } from "./cyan.js";
+import { fillStationPicker, showLoading, showResult, showError,
+         showSatellite, showSatelliteError } from "./ui.js";
 
 const picker = document.getElementById("station-picker");
+
+// Jordan Lake satellite data (cyan.json, refreshed by GitHub Actions).
+async function loadSatellite() {
+  try {
+    const cyan = await fetchCyanData();
+    console.log("Satellite data:", cyan);
+    showSatellite(cyan);
+  } catch (error) {
+    console.error("Failed to load satellite data", error);
+    showSatelliteError(error.message);
+  }
+}
 
 async function run(station) {
   showLoading(station);
@@ -33,6 +48,8 @@ async function run(station) {
     showError(station, error.message);
   }
 }
+
+loadSatellite();
 
 fillStationPicker(STATIONS);
 
