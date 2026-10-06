@@ -1,5 +1,5 @@
 """
-Fetch the latest EPA CyAN satellite cyanobacteria estimates for three
+Fetch the latest EPA CyAN satellite cyanobacteria estimates for ten
 points on Jordan Lake and save them to cyan.json for the JordanWatch app.
 
 Why a script: EPA's CyAN API blocks browsers from reading it directly
@@ -15,11 +15,21 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-# The three lake points tested on Sept 27 (all return satellite data)
+# Ten lake points tested on Oct 3, ordered north to south. Each sits a few
+# hundred meters offshore of its area, because CyAN masks out pixels that
+# touch land. "id" is the permanent key the app uses; "kind" is "area" for
+# places people visit and "intake" for the drinking-water intake (context only).
 LAKE_POINTS = [
-    {"name": "North", "lat": 35.81, "lng": -78.99},
-    {"name": "Middle", "lat": 35.75, "lng": -79.01},
-    {"name": "South", "lat": 35.70, "lng": -79.03},
+    {"id": "north", "name": "Upper New Hope Arm", "kind": "area", "lat": 35.81, "lng": -78.99},
+    {"id": "crosswinds", "name": "Crosswinds", "kind": "area", "lat": 35.748, "lng": -79.015},
+    {"id": "parkers-creek", "name": "Parkers Creek", "kind": "area", "lat": 35.745, "lng": -79.030},
+    {"id": "white-oak", "name": "White Oak", "kind": "area", "lat": 35.742, "lng": -79.024},
+    {"id": "intake", "name": "Cary/Apex Water Intake", "kind": "intake", "lat": 35.739, "lng": -79.027},
+    {"id": "seaforth", "name": "Seaforth", "kind": "area", "lat": 35.727, "lng": -79.027},
+    {"id": "poplar-point", "name": "Poplar Point", "kind": "area", "lat": 35.722, "lng": -79.027},
+    {"id": "ebenezer-church", "name": "Ebenezer Church", "kind": "area", "lat": 35.707, "lng": -79.032},
+    {"id": "vista-point", "name": "Vista Point", "kind": "area", "lat": 35.703, "lng": -79.042},
+    {"id": "new-hope-overlook", "name": "New Hope Overlook", "kind": "area", "lat": 35.697, "lng": -79.038},
 ]
 
 CYAN_URL = "https://cyan.epa.gov/cyan/cyano/location/data/{lat}/{lng}/all"
@@ -68,10 +78,10 @@ def to_date(milliseconds):
 
 
 def load_previous():
-    """Last run's results by point name, so a failed fetch can keep them."""
+    """Last run's results by point id, so a failed fetch can keep them."""
     try:
         previous = json.loads(OUTPUT_FILE.read_text())
-        return {p["name"]: p for p in previous.get("points", [])}
+        return {p["id"]: p for p in previous.get("points", []) if "id" in p}
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
@@ -90,7 +100,7 @@ def main():
             # instead of wiping it. The app's staleness rules flag old dates.
             failures += 1
             print(f"{point['name']}: FAILED ({error}); keeping previous data")
-            result = previous.get(point["name"], {**point, "status": "error"})
+            result = previous.get(point["id"], {**point, "status": "error"})
         points.append(result)
 
     output = {
