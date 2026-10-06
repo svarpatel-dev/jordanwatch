@@ -4,7 +4,8 @@
 
 import { STATIONS } from "./stations.js";
 import { AREAS } from "./areas.js";
-import { fetchStationData, extractAllReadings } from "./usgs.js";
+import { fetchStationData, extractAllReadings,
+         fetchRainTotal, fetchFlowPercentiles } from "./usgs.js";
 import { computeRisk } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
@@ -12,19 +13,22 @@ import { computeLakeVerdicts } from "./lake.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showLake, showLakeError } from "./ui.js";
 
-// The USGS station at Jordan Lake's dam, which measures the lake level
+// The USGS station at Jordan Lake's dam (lake level and rain), and the
+// Haw River, the lake's main inflow (for runoff after storms)
 const DAM_STATION_ID = "02098197";
+const HAW_RIVER_STATION_ID = "02096960";
 
 const picker = document.getElementById("station-picker");
 
-// Jordan Lake: satellite data, lake level and wind, combined into a
-// verdict for each area.
+// Jordan Lake: satellite data, runoff, lake level and wind, combined into
+// a verdict for each area.
 async function loadLake() {
   try {
-    // Fetch all three at the same time. Lake level and wind are extras:
-    // if one of them fails, the verdict still works without it.
-    const [cyan, lakeLevel, wind] = await Promise.all([
+    // Fetch everything at the same time. Only the satellite data is
+    // required: if an extra fails, the verdict still works without it.
+    const [cyan, runoff, lakeLevel, wind] = await Promise.all([
       fetchCyanData(),
+      fetchRunoff(),
       fetchLakeLevel().catch(error => {
         console.error("Failed to load lake level", error);
         return null;
@@ -35,7 +39,7 @@ async function loadLake() {
       })
     ]);
 
-    const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind);
+    const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind, runoff);
     console.log("Lake verdicts:", lake);
     console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
 
@@ -50,6 +54,31 @@ async function loadLake() {
 async function fetchLakeLevel() {
   const data = await fetchStationData(DAM_STATION_ID);
   return extractAllReadings(data).lakeLevelFt;
+}
+
+// Rain at the dam (last 48 hours) plus the Haw River's flow and its
+// normal range for today. Each piece is null if it fails to load.
+async function fetchRunoff() {
+  const [rainIn48h, hawReadings, flowPercentiles] = await Promise.all([
+    fetchRainTotal(DAM_STATION_ID, 48).catch(error => {
+      console.error("Failed to load rain", error);
+      return null;
+    }),
+    fetchStationData(HAW_RIVER_STATION_ID).then(extractAllReadings).catch(error => {
+      console.error("Failed to load Haw River flow", error);
+      return null;
+    }),
+    fetchFlowPercentiles(HAW_RIVER_STATION_ID).catch(error => {
+      console.error("Failed to load Haw River normals", error);
+      return null;
+    })
+  ]);
+
+  return {
+    rainIn48h,
+    flowCfs: hawReadings?.flowCfs?.value ?? null,
+    flowPercentiles
+  };
 }
 
 async function run(station) {

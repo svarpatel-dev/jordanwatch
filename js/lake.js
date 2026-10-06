@@ -1,4 +1,4 @@
-// The lake verdict engine: turns satellite, lake level and wind data into
+// The lake verdict engine: turns satellite, runoff, lake level and wind data into
 // an Avoid / Caution / Low Risk verdict for each Jordan Lake area, with the
 // reasons. Knows nothing about the page or where the data came from.
 // Rules decided Oct 3–5 (see the project notes: Key decisions → Risk engine).
@@ -19,6 +19,10 @@ const IMAGE_MAX_DAYS = 14;
 const NORMAL_POOL_FT = 216;
 const HIGH_WATER_FT = 220;
 
+// Runoff after storms: heavy rain at the dam (0.5 in within 48 hours) or
+// the Haw River running above its 90th percentile for this date
+const HEAVY_RAIN_IN = 0.5;
+
 // Wind piles floating scum onto a shore when it's light (0.5–3 m/s) and
 // blowing toward that shore (within 45° of it). Below 0.5 m/s the
 // direction is too random to mean anything.
@@ -26,9 +30,13 @@ const CALM_MS = 0.5;
 const SCUM_WIND_MAX_MS = 3;
 const ONSHORE_WINDOW_DEG = 45;
 
-export function computeLakeVerdicts(areas, cyan, lakeLevel, wind) {
+export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff) {
   // Look up satellite points by id, like a Python dict: {"north": {...}, ...}
   const pointsById = Object.fromEntries(cyan.points.map(p => [p.id, p]));
+
+  // Lake level and runoff are the same for every area, so work them out once
+  const lakeLevelReason = lakeLevelSignal(lakeLevel);
+  const runoffReason = runoffSignal(runoff);
 
   const verdicts = areas.map(area => {
     const point = pointsById[area.cyanPointId];
@@ -37,7 +45,8 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind) {
     // Each signal gives a level and a "why" sentence.
     const signals = [
       satelliteSignal(point, borrowed),
-      lakeLevelSignal(lakeLevel)
+      runoffReason,
+      lakeLevelReason
     ];
 
     // The verdict is the worst level among the signals (decided Oct 4)
@@ -134,6 +143,39 @@ function lakeLevelSignal(lakeLevel) {
   }
   return { source: "lake-level", level: "low",
            text: `Lake level ${feet} ft (normal: ${NORMAL_POOL_FT} ft).` };
+}
+
+// --- Runoff after heavy rain (decided Oct 4) ---
+// General guidance about bacteria after storms, not a Jordan Lake rule
+function runoffSignal(runoff) {
+  const rain = runoff?.rainIn48h ?? null;
+  const flow = runoff?.flowCfs ?? null;
+  const normal = runoff?.flowPercentiles ?? null;
+
+  if (rain === null && (flow === null || normal === null)) {
+    return { source: "runoff", level: null, text: "Rain and river data are unavailable right now." };
+  }
+
+  const heavyRain = rain !== null && rain >= HEAVY_RAIN_IN;
+  const highFlow = flow !== null && normal !== null && flow > normal.p90;
+
+  // Describe whatever we have, e.g. "0.01 in of rain in the last 48 hours"
+  const facts = [];
+  if (rain !== null) {
+    facts.push(`${rain.toFixed(2)} in of rain at the dam in the last 48 hours`);
+  }
+  if (flow !== null && normal !== null) {
+    const compared = highFlow ? "well above" : flow > normal.p75 ? "above" : flow < normal.p25 ? "below" : "within";
+    facts.push(`Haw River at ${Math.round(flow).toLocaleString()} cubic ft/sec, ${compared} its usual range for this date`);
+  }
+
+  if (heavyRain || highFlow) {
+    const headline = heavyRain ? "Heavy rain recently" : "The Haw River is running high after rain upstream";
+    return { source: "runoff", level: "caution",
+             text: `${headline}: wait 48 hours before swimming (${facts.join("; ")}). Storm runoff can carry bacteria into the lake.` };
+  }
+  return { source: "runoff", level: "low",
+           text: `No heavy rain recently (${facts.join("; ")}).` };
 }
 
 // --- Wind (decided Oct 5) ---

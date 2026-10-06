@@ -16,6 +16,9 @@ const PARAMS = {
 // "continuous" = USGS's live sensor readings (every 5–15 minutes)
 const API_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items";
 
+// "observationNormals" = what's typical for each date, from past years
+const NORMALS_URL = "https://api.waterdata.usgs.gov/statistics/v0/observationNormals";
+
 // USGS's old "no data" marker; kept as a safety check (bug 2)
 const NO_DATA = -999999;
 
@@ -29,7 +32,70 @@ export async function fetchStationData(stationId) {
     time: "P1D",
     limit: "10000"
   });
-  const url = `${API_URL}?${query}`;
+  return fetchUsgs(`${API_URL}?${query}`);
+}
+
+// Total rain (inches) at a station over the last `hours` hours. USGS
+// reports rain (code 00045) as the amount in each 15-minute interval,
+// so we add them up. Returns null if the station sent no rain data.
+export async function fetchRainTotal(stationId, hours) {
+  const query = new URLSearchParams({
+    f: "json",
+    monitoring_location_id: `USGS-${stationId}`,
+    parameter_code: "00045",
+    time: `PT${hours}H`,
+    limit: "10000"
+  });
+  const data = await fetchUsgs(`${API_URL}?${query}`);
+
+  const amounts = (data.features ?? [])
+    .map(f => parseFloat(f.properties.value))
+    .filter(num => !Number.isNaN(num) && num >= 0);
+
+  if (amounts.length === 0) return null;
+  return amounts.reduce((total, num) => total + num, 0);
+}
+
+// Today's normal flow range at a station, from past years' daily averages:
+// e.g. { p25: 124.5, p50: 229, p75: 444.5, p90: 1640 } in cubic ft/sec.
+// Returns null if USGS has no normals for this station.
+export async function fetchFlowPercentiles(stationId) {
+  // Today's date as "MM-DD", e.g. "10-06"
+  const today = new Date();
+  const monthDay = String(today.getMonth() + 1).padStart(2, "0") + "-"
+                 + String(today.getDate()).padStart(2, "0");
+
+  const query = new URLSearchParams({
+    monitoring_location_id: `USGS-${stationId}`,
+    parameter_code: "00060",
+    normal_type: "DOY",   // DOY = "day of year"
+    start_date: monthDay,
+    end_date: monthDay
+  });
+  const data = await fetchUsgs(`${NORMALS_URL}?${query}`);
+
+  // Find the percentiles of the daily mean flow (statistic code 00003)
+  for (const feature of data.features ?? []) {
+    for (const series of feature.properties.data ?? []) {
+      if (series.parameter_code !== "00060" || series.parent_statistic_id !== "00003") continue;
+
+      const record = series.values.find(v => v.computation === "percentile");
+      if (!record) continue;
+
+      // Pair up ["25", "50", ...] with ["124.5", "229.0", ...]
+      const percentiles = {};
+      record.percentiles.forEach((p, i) => {
+        percentiles[`p${p}`] = parseFloat(record.values[i]);
+      });
+      return percentiles;
+    }
+  }
+  return null;
+}
+
+// Every USGS request goes through here: one retry on temporary errors,
+// and a clear error for anything else.
+async function fetchUsgs(url) {
   let response = await fetch(url);
 
   // Bug 7 fix: USGS sometimes returns a temporary 502/503/504 for a few
