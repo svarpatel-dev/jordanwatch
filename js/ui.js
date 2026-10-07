@@ -114,6 +114,7 @@ export function showResult(station, risk, readings) {
     <strong>${RISK_LABELS[risk.level]}</strong><br>
     ${risk.reason}
     ${risk.note ? `<br><em>ℹ️ ${risk.note}</em>` : ""}
+    ${risk.flowStatus ? `<br>Flow is ${risk.flowStatus}.` : ""}
     ${risk.isOutdated ? "<br><em>⚠️ Reading is 3–24h old</em>" : ""}
     <br><br>
     ${readingLines || "No recent readings from this station."}

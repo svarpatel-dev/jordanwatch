@@ -18,12 +18,14 @@ function getStaleness(timestampString) {
   return { status, ageHours };
 }
 
-// Picks the right rules for the station's tier.
-export function computeRisk(readings, tier) {
+// Picks the right rules for the station's tier. flowNormal is the
+// station's normal flow range for today (from USGS), or null.
+export function computeRisk(readings, tier, flowNormal = null) {
   if (tier === "limited") {
     return {
       level: "limited",
-      reason: "This station measures water flow or lake level, not water quality, so it can't give a risk rating."
+      reason: "This station measures water flow or lake level, not water quality, so it can't give a risk rating.",
+      flowStatus: describeFlow(readings.flowCfs, flowNormal)
     };
   }
   if (tier === "partial") return computePartialRisk(readings);
@@ -82,6 +84,28 @@ function computeFullRisk(readings) {
   }
 
   return { level: "low", reason: "All readings are within NC water quality standards.", isOutdated };
+}
+
+// Compares today's flow with the station's normal range for this date
+// (decided Oct 5, question 4). e.g. "below normal for this date (usual
+// range: 124–445 cubic ft/sec)". Returns null if either piece is missing.
+function describeFlow(flowReading, normal) {
+  if (!flowReading || !normal) return null;
+
+  const flow = flowReading.value;
+  let status;
+  if (flow > normal.p90) status = "well above normal";
+  else if (flow > normal.p75) status = "above normal";
+  else if (flow < normal.p25) status = "below normal";
+  else status = "near normal";
+
+  return `${status} for this date (usual range: ${formatFlow(normal.p25)}–${formatFlow(normal.p75)} cubic ft/sec)`;
+}
+
+// Small creeks have tiny flows, so keep one decimal under 10:
+// 0.18 → "0.2", 444.5 → "445", 1640 → "1,640"
+function formatFlow(cfs) {
+  return cfs < 10 ? cfs.toFixed(1) : Math.round(cfs).toLocaleString();
 }
 
 // For stations with live DO + pH but no turbidity (decided Sept 27).

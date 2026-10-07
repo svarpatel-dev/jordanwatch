@@ -87,14 +87,25 @@ async function run(station) {
   // Bug 4 fix: if anything below fails (no internet, a USGS error,
   // unexpected data), show a message instead of freezing on "Loading…".
   try {
-    const data = await fetchStationData(station.id);
+    // Limited stations also get today's normal flow range, to say whether
+    // the river is running high or low. If that fails, skip it (null).
+    const [data, flowNormal] = await Promise.all([
+      fetchStationData(station.id),
+      station.tier === "limited"
+        ? fetchFlowPercentiles(station.id).catch(error => {
+            console.error("Failed to load normal flow for", station.name, error);
+            return null;
+          })
+        : null
+    ]);
 
     // If the user picked a different station while this one was loading,
     // throw this result away so an old answer never overwrites the new one.
     if (picker.value !== station.id) return;
 
     const readings = extractAllReadings(data);
-    const risk = computeRisk(readings, station.tier);
+    const risk = computeRisk(readings, station.tier, flowNormal);
+
 
     console.log("Station:", station.name, "| Readings:", readings);
     console.log("Risk result:", risk);
