@@ -106,7 +106,6 @@ async function run(station) {
     const readings = extractAllReadings(data);
     const risk = computeRisk(readings, station.tier, flowNormal);
 
-
     console.log("Station:", station.name, "| Readings:", readings);
     console.log("Risk result:", risk);
 
