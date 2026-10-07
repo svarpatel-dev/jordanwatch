@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-10-07T06:00:42+00:00",
+  "updatedAt": "2026-10-07T13:23:54+00:00",
   "points": [
     {
       "id": "north",
@@ -9,12 +9,12 @@
       "lat": 35.81,
       "lng": -78.99,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 672977,
-      "maxCellsPerMl": 963829,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 691831,
+      "maxCellsPerMl": 862979,
       "validPixels": 6,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "crosswinds",
@@ -23,12 +23,12 @@
       "lat": 35.748,
       "lng": -79.015,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 285759,
-      "maxCellsPerMl": 457088,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 263027,
+      "maxCellsPerMl": 346737,
       "validPixels": 5,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "parkers-creek",
@@ -37,12 +37,12 @@
       "lat": 35.745,
       "lng": -79.03,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 263027,
-      "maxCellsPerMl": 457088,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 235505,
+      "maxCellsPerMl": 263027,
       "validPixels": 6,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "white-oak",
@@ -51,11 +51,11 @@
       "lat": 35.742,
       "lng": -79.024,
       "status": "ok",
-      "imageDate": "2026-09-26",
-      "newestImageDate": "2026-09-26",
-      "cellsPerMl": 169044,
-      "maxCellsPerMl": 169044,
-      "validPixels": 4,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 248886,
+      "maxCellsPerMl": 376704,
+      "validPixels": 9,
       "frequency": "Daily"
     },
     {
@@ -65,12 +65,12 @@
       "lat": 35.739,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 39084,
-      "maxCellsPerMl": 235505,
-      "validPixels": 4,
-      "frequency": "Weekly"
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 248886,
+      "maxCellsPerMl": 248886,
+      "validPixels": 6,
+      "frequency": "Daily"
     },
     {
       "id": "seaforth",
@@ -79,12 +79,12 @@
       "lat": 35.727,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 69823,
-      "maxCellsPerMl": 356451,
-      "validPixels": 6,
-      "frequency": "Weekly"
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 118032,
+      "maxCellsPerMl": 118032,
+      "validPixels": 5,
+      "frequency": "Daily"
     },
     {
       "id": "poplar-point",
@@ -93,12 +93,12 @@
       "lat": 35.722,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 444631,
-      "maxCellsPerMl": 444631,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 135519,
+      "maxCellsPerMl": 178649,
       "validPixels": 6,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "ebenezer-church",
@@ -107,12 +107,12 @@
       "lat": 35.707,
       "lng": -79.032,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 71779,
-      "maxCellsPerMl": 199526,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 111686,
+      "maxCellsPerMl": 124738,
       "validPixels": 4,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "vista-point",
@@ -121,12 +121,12 @@
       "lat": 35.703,
       "lng": -79.042,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 178649,
-      "maxCellsPerMl": 248886,
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 139316,
+      "maxCellsPerMl": 216770,
       "validPixels": 6,
-      "frequency": "Weekly"
+      "frequency": "Daily"
     },
     {
       "id": "new-hope-overlook",
@@ -135,12 +135,12 @@
       "lat": 35.697,
       "lng": -79.038,
       "status": "ok",
-      "imageDate": "2026-10-03",
-      "newestImageDate": "2026-10-03",
-      "cellsPerMl": 47424,
-      "maxCellsPerMl": 169044,
-      "validPixels": 6,
-      "frequency": "Weekly"
+      "imageDate": "2026-10-06",
+      "newestImageDate": "2026-10-06",
+      "cellsPerMl": 301995,
+      "maxCellsPerMl": 409261,
+      "validPixels": 7,
+      "frequency": "Daily"
     }
   ]
 }
