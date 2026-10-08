@@ -3,11 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>JordanWatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Leaflet: the map library (styles + code), from the cdnjs CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <h1>JordanWatch</h1>
 
   <h2>Jordan Lake</h2>
+  <div id="map"></div>
   <div id="lake">Loading Jordan Lake data…</div>
 
   <h2>Stations</h2>

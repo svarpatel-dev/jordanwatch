@@ -10,6 +10,7 @@ import { computeRisk } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
+import { showMap } from "./map.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showLake, showLakeError } from "./ui.js";
 
@@ -44,6 +45,14 @@ async function loadLake() {
     console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
 
     showLake(lake);
+
+    // The map gets its own try/catch: if the map library fails to load,
+    // the list of areas above still works.
+    try {
+      showMap(lake, AREAS);
+    } catch (error) {
+      console.error("Failed to show the map", error);
+    }
   } catch (error) {
     console.error("Failed to load Jordan Lake data", error);
     showLakeError(error.message);

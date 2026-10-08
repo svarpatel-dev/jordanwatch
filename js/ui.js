@@ -165,9 +165,9 @@ function areaCard(area) {
     : "No satellite image";
 
   return `
-    <details>
+    <details id="area-${area.id}">
       <summary><strong>${area.name}</strong>: ${VERDICT_LABELS[area.level]}</summary>
-      <p><small>${image}</small></p>
+      <p><small>${area.swimBeach ? "🏖 Swim beach" : "No designated swim beach"} · ${image}</small></p>
       ${area.borrowedFrom ? `<p><em>No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</em></p>` : ""}
       <p><strong>Why:</strong></p>
       <ul>${reasons}</ul>
@@ -178,7 +178,7 @@ function areaCard(area) {
         🐕 ${activities.pets} · 👨‍👩‍👧 ${activities.families}
       </p>
       ${area.noRecentSatellite ? `<p><em>${NO_RECENT_SATELLITE}</em></p>` : ""}
-      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${VERDICT_LABELS[area.goInstead.level]})</p>` : ""}
+      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${VERDICT_LABELS[area.goInstead.level]}${area.goInstead.swimBeach ? ", swim beach" : ""})</p>` : ""}
     </details>
   `;
 }

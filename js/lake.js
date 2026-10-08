@@ -62,6 +62,7 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff) {
     return {
       id: area.id,
       name: area.name,
+      swimBeach: area.swimBeach,
       level,
       cellsPerMl: point?.cellsPerMl ?? null,
       imageDate: point?.imageDate ?? null,
@@ -76,12 +77,22 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff) {
   // Best spots first: by verdict, then by satellite reading (lower is better)
   const ranked = [...verdicts].sort(compareAreas);
 
-  // "Go here instead" (decided Oct 3): for each area, the best-ranked area
-  // with a better verdict, if there is one
+  // "Go here instead" (decided Oct 3; beaches preferred, decided Oct 7):
+  // for each area, the best other area with a better verdict. Among the
+  // areas tied for that best verdict, a swim beach comes first.
   for (const verdict of verdicts) {
-    const better = ranked.find(other => LEVELS.indexOf(other.level) < LEVELS.indexOf(verdict.level));
-    verdict.goInstead = better ? { id: better.id, name: better.name, level: better.level } : null;
+    const better = ranked.filter(other => LEVELS.indexOf(other.level) < LEVELS.indexOf(verdict.level));
+    if (better.length === 0) {
+      verdict.goInstead = null;
+      continue;
+    }
+
+    const bestLevel = better[0].level;
+    const tied = better.filter(other => other.level === bestLevel);
+    const pick = tied.find(other => other.swimBeach) ?? tied[0];
+    verdict.goInstead = { id: pick.id, name: pick.name, level: pick.level, swimBeach: pick.swimBeach };
   }
+
 
   return {
     areas: verdicts,
