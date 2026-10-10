@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-10-10T12:32:22+00:00",
+  "updatedAt": "2026-10-10T20:21:16+00:00",
   "points": [
     {
       "id": "north",
@@ -14,7 +14,8 @@
       "cellsPerMl": 602560,
       "maxCellsPerMl": 751623,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "crosswinds",
@@ -28,7 +29,8 @@
       "cellsPerMl": 301995,
       "maxCellsPerMl": 387258,
       "validPixels": 5,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "parkers-creek",
@@ -42,7 +44,8 @@
       "cellsPerMl": 229087,
       "maxCellsPerMl": 242103,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "white-oak",
@@ -56,7 +59,8 @@
       "cellsPerMl": 169044,
       "maxCellsPerMl": 432514,
       "validPixels": 9,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "intake",
@@ -70,7 +74,8 @@
       "cellsPerMl": 432514,
       "maxCellsPerMl": 432514,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "seaforth",
@@ -84,7 +89,8 @@
       "cellsPerMl": 105682,
       "maxCellsPerMl": 194089,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "poplar-point",
@@ -98,7 +104,8 @@
       "cellsPerMl": 164437,
       "maxCellsPerMl": 210863,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "ebenezer-church",
@@ -112,7 +119,8 @@
       "cellsPerMl": 147231,
       "maxCellsPerMl": 164437,
       "validPixels": 4,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "vista-point",
@@ -126,7 +134,8 @@
       "cellsPerMl": 173780,
       "maxCellsPerMl": 183654,
       "validPixels": 6,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     },
     {
       "id": "new-hope-overlook",
@@ -140,7 +149,8 @@
       "cellsPerMl": 173780,
       "maxCellsPerMl": 301995,
       "validPixels": 8,
-      "frequency": "Daily"
+      "frequency": "Daily",
+      "belowDetection": false
     }
   ]
 }
