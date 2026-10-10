@@ -186,9 +186,15 @@ function areaCard(area) {
 // The drinking-water intake: context only, never a verdict (decided Oct 3)
 function intakeNote(intake) {
   if (!intake || intake.status !== "ok") return "";
+
+  // Below detection (bug 9 fix, Oct 10): say so instead of "about 0 cells/mL"
+  const amount = intake.belowDetection
+    ? "below detection (under about 6,500 cells/mL)"
+    : `about ${intake.cellsPerMl.toLocaleString()} cells/mL`;
+
   return `
-    <p><small>💧 Near the Cary/Apex drinking-water intake: about
-      ${intake.cellsPerMl.toLocaleString()} cells/mL (satellite image ${intake.imageDate}).
+    <p><small>💧 Near the Cary/Apex drinking-water intake: ${amount}
+      (satellite image ${intake.imageDate}).
       Context only: this water is treated before it reaches taps, so this is
       not a tap-water rating.</small></p>
   `;

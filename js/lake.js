@@ -117,7 +117,11 @@ function satelliteSignal(point, borrowed) {
   }
 
   const cells = point.cellsPerMl;
-  const amount = `${prefix}about ${cells.toLocaleString()} cells/mL`;
+  // Below detection (bug 9 fix, Oct 10): the satellite saw clean water here,
+  // stored as 0 cells/mL, so it lands in the Low Risk branch below
+  const amount = point.belowDetection
+    ? `${prefix}below detection (under about 6,500 cells/mL)`
+    : `${prefix}about ${cells.toLocaleString()} cells/mL`;
   let level;
   let text;
 
