@@ -2,11 +2,13 @@
 
 Photos are saved OUTSIDE the repo, in ../jordanwatch-photos, so they never
 reach GitHub. Every photo gets one row in credits.csv (file, class, source,
-author, license, url). Only CC0 and CC BY photos are downloaded.
+author, license, url). Only public domain, CC0, CC BY and (Commons only) CC BY-SA photos are downloaded.
 
 Run from the jordanwatch folder:
     python3 scripts/collect_photos.py inat bloom 67334 500 --without 67332
     python3 scripts/collect_photos.py sweden 2020 2021 2022 2023
+    python3 scripts/collect_photos.py commons bloom 400
+    python3 scripts/collect_photos.py openimages clear_water 300
 
 Running a command again skips photos that are already downloaded.
 """
@@ -14,9 +16,11 @@ Running a command again skips photos that are already downloaded.
 import argparse
 import csv
 import json
+import re
 import subprocess
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -35,6 +39,27 @@ INAT_LICENSES = {"cc0": "CC0", "cc-by": "CC BY"}
 
 SWEDEN_RECORDS = {"2020": "4104638", "2021": "7551670", "2022": "7551676", "2023": "10599927"}
 
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+COMMONS_CATEGORIES = {
+    "bloom": [
+        "Algae blooms in lakes", "Algal blooms caused by cyanobacteria", "Algal blooms in the United States",
+        "Algal blooms in the Detroit River", "Algal blooms in the Maumee River", "Algal blooms in St. Clair",
+        "Cyanobacterial blooms by country", "Algal blooms in Germany", "Algal blooms in the United Kingdom",
+        "Algal blooms in Australia", "Algal blooms in Russia", "Algal mats",
+    ],
+}
+# subcategories that aren't shoreline photos of freshwater blooms
+COMMONS_SKIP = ("satellite", "phytoplankton by", "red tide", "sargassum", "green tide",
+                "warning sign", "prymnesium", "space station")
+
+OPEN_IMAGES = "https://storage.googleapis.com/openimages"
+OPEN_IMAGES_PHOTOS = "https://open-images-dataset.s3.amazonaws.com/train"
+OPEN_IMAGES_LABELS = {
+    "clear_water": ["Lake", "Pond", "River", "Reservoir"],
+    "not_water": ["Shore", "Dock", "Pier", "Beach", "Snow", "Ice"],
+}
+OPEN_IMAGES_INDEX = PHOTOS_DIR / "openimages_index.csv"
+
 
 def get_json(url):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -50,6 +75,13 @@ def download(url, path):
             if not chunk:
                 break
             f.write(chunk)
+
+
+def stream_csv(url):
+    """Read a big CSV file from the internet one row at a time (never saved to disk)."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=300) as response:
+        yield from csv.DictReader(line.decode("utf-8") for line in response)
 
 
 def shrink_to_jpeg(source, target):
@@ -183,6 +215,164 @@ def collect_sweden(years):
         # the zip and full-size originals are deleted here with the temp folder
 
 
+def commons_files(category, depth, found, visited):
+    """Every file in a Commons category and its subcategories, up to `depth` levels down."""
+    if category in visited or depth < 0 or any(word in category.lower() for word in COMMONS_SKIP):
+        return
+    visited.add(category)
+    params = {"action": "query", "list": "categorymembers", "cmtitle": f"Category:{category}",
+              "cmtype": "file|subcat", "cmlimit": 500, "format": "json"}
+    while True:
+        data = get_json(f"{COMMONS_API}?{urllib.parse.urlencode(params)}")
+        for member in data["query"]["categorymembers"]:
+            title = member["title"]
+            if member["ns"] == 14:  # a subcategory
+                commons_files(title.removeprefix("Category:"), depth - 1, found, visited)
+            elif title.lower().endswith(IMAGE_EXTENSIONS):
+                found.add(title)
+        if "continue" not in data:
+            break
+        params.update(data["continue"])
+
+
+def commons_license(name):
+    """Public domain, CC0, CC BY or CC BY-SA (never NC); returns None otherwise."""
+    if name in ("Public domain", "CC0", "Attribution") or name.startswith(("CC BY ", "CC BY-SA ")):
+        return name
+    return None
+
+
+def collect_commons(class_name, limit):
+    """Wikimedia Commons photos from the categories listed in COMMONS_CATEGORIES."""
+    have = already_downloaded()
+    folder = PHOTOS_DIR / "candidates" / class_name
+    found, visited = set(), set()
+    for category in COMMONS_CATEGORIES[class_name]:
+        commons_files(category, 3, found, visited)
+    titles = sorted(found)
+    print(f"{len(titles)} files found in {len(visited)} categories.")
+
+    saved = 0
+    for start in range(0, len(titles), 50):
+        params = {"action": "query", "prop": "imageinfo", "titles": "|".join(titles[start:start + 50]),
+                  "iiprop": "url|extmetadata", "iiurlwidth": MAX_SIZE, "format": "json"}
+        pages = get_json(f"{COMMONS_API}?{urllib.parse.urlencode(params)}")["query"]["pages"]
+
+        for page in pages.values():
+            info = page["imageinfo"][0]
+            meta = info["extmetadata"]
+            license_name = commons_license(meta.get("LicenseShortName", {}).get("value", ""))
+            file_name = f"commons_{page['pageid']}.jpg"
+            if license_name is None or file_name in have:
+                continue
+            author = re.sub(r"<[^>]+>", "", meta.get("Artist", {}).get("value", "unknown")).strip()
+
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    raw = Path(tmp) / "photo"
+                    download(info["thumburl"], raw)
+                    shrink_to_jpeg(raw, folder / file_name)
+            except Exception as error:
+                print(f"  skipped {page['title']}: {error}")
+                continue
+
+            add_credit({
+                "file": file_name,
+                "class": class_name,
+                "source": "Wikimedia Commons",
+                "author": author,
+                "license": license_name,
+                "url": info["descriptionurl"],
+            })
+            saved += 1
+            print(f"  {saved}/{limit} {file_name}")
+            if saved >= limit:
+                print(f"Done: {saved} new {class_name} photos from Wikimedia Commons.")
+                return
+            time.sleep(1)
+
+    print(f"Done: {saved} new {class_name} photos from Wikimedia Commons.")
+
+
+def build_openimages_index():
+    """One-time step: find every human-verified photo with our labels, plus its credits.
+
+    Streams two big Open Images files (~5 GB in total) without saving them,
+    and writes the small result to openimages_index.csv for later runs.
+    """
+    names = {row["DisplayName"]: row["LabelName"]
+             for row in stream_csv(f"{OPEN_IMAGES}/v7/oidv7-class-descriptions.csv")}
+    wanted = {names[label]: label for labels in OPEN_IMAGES_LABELS.values() for label in labels}
+
+    print("Finding labeled photos (streams ~2.7 GB, takes a few minutes)...")
+    photo_labels = {}
+    for row in stream_csv(f"{OPEN_IMAGES}/v7/oidv7-train-annotations-human-imagelabels.csv"):
+        if row["Confidence"] == "1" and row["LabelName"] in wanted:
+            photo_labels.setdefault(row["ImageID"], set()).add(wanted[row["LabelName"]])
+    print(f"  {len(photo_labels)} photos found.")
+
+    print("Finding authors and licenses (streams ~2.3 GB)...")
+    with open(OPEN_IMAGES_INDEX, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["image_id", "labels", "author", "license", "url"])
+        for row in stream_csv(f"{OPEN_IMAGES}/v5/train-images-with-labels-with-rotation.csv"):
+            if row["ImageID"] in photo_labels:
+                labels = "|".join(sorted(photo_labels[row["ImageID"]]))
+                writer.writerow([row["ImageID"], labels, row["Author"], row["License"],
+                                 row["OriginalLandingURL"]])
+    print(f"  saved {OPEN_IMAGES_INDEX.name}")
+
+
+def collect_openimages(class_name, limit_per_label):
+    """Open Images photos for one class, up to `limit_per_label` photos per label."""
+    if not OPEN_IMAGES_INDEX.exists():
+        build_openimages_index()
+    have = already_downloaded()
+    folder = PHOTOS_DIR / "candidates" / class_name
+    water_labels = set(OPEN_IMAGES_LABELS["clear_water"])
+
+    with open(OPEN_IMAGES_INDEX, newline="") as f:
+        rows = list(csv.DictReader(f))
+
+    for label in OPEN_IMAGES_LABELS[class_name]:
+        saved = 0
+        for row in rows:
+            labels = set(row["labels"].split("|"))
+            if label not in labels:
+                continue
+            if class_name == "not_water" and labels & water_labels:
+                continue  # a beach photo that also shows a lake isn't "not water"
+            if "/by/" not in row["license"]:
+                continue  # CC BY only
+            file_name = f"openimages_{row['image_id']}.jpg"
+            if file_name in have:
+                continue
+
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    raw = Path(tmp) / "photo.jpg"
+                    download(f"{OPEN_IMAGES_PHOTOS}/{row['image_id']}.jpg", raw)
+                    shrink_to_jpeg(raw, folder / file_name)
+            except Exception as error:
+                print(f"  skipped {row['image_id']}: {error}")
+                continue
+
+            add_credit({
+                "file": file_name,
+                "class": class_name,
+                "source": f"Open Images V7 ({label})",
+                "author": row["author"],
+                "license": "CC BY 2.0",
+                "url": row["url"],
+            })
+            have.add(file_name)
+            saved += 1
+            print(f"  {label} {saved}/{limit_per_label} {file_name}")
+            if saved >= limit_per_label:
+                break
+        print(f"{label}: {saved} new {class_name} photos.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Download candidate training photos.")
     sources = parser.add_subparsers(dest="source", required=True)
@@ -196,12 +386,24 @@ def main():
     sweden = sources.add_parser("sweden", help="Algal Blooms Sweden photos from Zenodo")
     sweden.add_argument("years", nargs="+", choices=list(SWEDEN_RECORDS))
 
+    commons = sources.add_parser("commons", help="photos from Wikimedia Commons categories")
+    commons.add_argument("class_name", choices=list(COMMONS_CATEGORIES))
+    commons.add_argument("limit", type=int, help="how many new photos to download")
+
+    openimages = sources.add_parser("openimages", help="photos from Google's Open Images V7")
+    openimages.add_argument("class_name", choices=list(OPEN_IMAGES_LABELS))
+    openimages.add_argument("limit", type=int, help="how many new photos per label")
+
     args = parser.parse_args()
     setup_folders()
     if args.source == "inat":
         collect_inat(args.class_name, args.taxon_id, args.limit, args.without)
-    else:
+    elif args.source == "sweden":
         collect_sweden(args.years)
+    elif args.source == "commons":
+        collect_commons(args.class_name, args.limit)
+    else:
+        collect_openimages(args.class_name, args.limit)
 
 
 if __name__ == "__main__":
