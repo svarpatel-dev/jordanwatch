@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-10-12T15:27:51+00:00",
+  "updatedAt": "2026-10-12T19:14:52+00:00",
   "points": [
     {
       "id": "north",
@@ -15,7 +15,9 @@
       "maxCellsPerMl": 862979,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 602560
     },
     {
       "id": "crosswinds",
@@ -30,7 +32,9 @@
       "maxCellsPerMl": 356451,
       "validPixels": 5,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 301995
     },
     {
       "id": "parkers-creek",
@@ -45,7 +49,9 @@
       "maxCellsPerMl": 263027,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 229087
     },
     {
       "id": "white-oak",
@@ -60,7 +66,9 @@
       "maxCellsPerMl": 376704,
       "validPixels": 9,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 169044
     },
     {
       "id": "intake",
@@ -75,7 +83,9 @@
       "maxCellsPerMl": 293765,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 432514
     },
     {
       "id": "seaforth",
@@ -90,7 +100,9 @@
       "maxCellsPerMl": 194089,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 105682
     },
     {
       "id": "poplar-point",
@@ -105,7 +117,9 @@
       "maxCellsPerMl": 229087,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 164437
     },
     {
       "id": "ebenezer-church",
@@ -120,7 +134,9 @@
       "maxCellsPerMl": 169044,
       "validPixels": 4,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 147231
     },
     {
       "id": "vista-point",
@@ -135,7 +151,9 @@
       "maxCellsPerMl": 216770,
       "validPixels": 6,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 173780
     },
     {
       "id": "new-hope-overlook",
@@ -150,7 +168,9 @@
       "maxCellsPerMl": 398107,
       "validPixels": 8,
       "frequency": "Weekly",
-      "belowDetection": false
+      "belowDetection": false,
+      "previousDate": "2026-10-08",
+      "previousCellsPerMl": 173780
     }
   ]
 }
