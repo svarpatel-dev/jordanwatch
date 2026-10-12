@@ -30,7 +30,9 @@ const CALM_MS = 0.5;
 const SCUM_WIND_MAX_MS = 3;
 const ONSHORE_WINDOW_DEG = 45;
 
-export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff) {
+// scans = today's camera scans the user confirmed as a possible bloom
+// (scans.js); empty if there are none
+export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans = []) {
   // Look up satellite points by id, like a Python dict: {"north": {...}, ...}
   const pointsById = Object.fromEntries(cyan.points.map(p => [p.id, p]));
 
@@ -58,6 +60,14 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff) {
       level = raiseOneLevel(level);
     }
     signals.push(windReason);
+
+    // A bloom the user confirmed with the camera here today also raises the
+    // verdict one step, like wind (decided Oct 11; on this phone only)
+    const scanReason = scanSignal(area, scans);
+    if (scanReason) {
+      level = raiseOneLevel(level);
+      signals.push(scanReason);
+    }
 
     return {
       id: area.id,
@@ -229,6 +239,15 @@ function windSignal(area, point, wind) {
 
   return { source: "wind", level: null, raises: true,
            text: `Light wind (${speed} m/s) from the ${from} is likely pushing floating algae toward this shore.` };
+}
+
+// --- Camera scan (decided Oct 11) ---
+// Returns null when the user hasn't confirmed a bloom here today
+function scanSignal(area, scans) {
+  const scan = scans.find(s => s.areaId === area.id);
+  if (!scan) return null;
+  return { source: "camera", level: null,
+           text: `Your camera scan at ${scan.time} suggested a possible bloom (${scan.percent}% confident; unconfirmed, shown only on this phone).` };
 }
 
 // --- Helpers ---

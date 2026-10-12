@@ -73,6 +73,12 @@ const SCAN_LABELS = {
   uncertain: "Uncertain: move closer or try another angle"
 };
 
+// Where to report a bloom. Jordan Lake areas are in NC, so NC DEQ's online
+// form (checked Oct 11). Anywhere else, EPA's list of every state's bloom
+// program for now; a direct link for each state comes with the location step (Oct 13).
+const NC_REPORT = { url: "https://survey123.arcgis.com/share/deb256fcc1134bbc83b72c80109392f1", name: "NC DEQ" };
+const GENERAL_REPORT_URL = "https://www.epa.gov/habs/state-tribal-hab-programs-and-resources";
+
 // Extra line for areas without a recent satellite reading (decided Oct 5)
 const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
 
@@ -229,6 +235,56 @@ export function showScanResult(result) {
     ${result.label === "bloom" ? "<br>Stay out of the water and keep pets away." : ""}
     <br><small>Screening aid, not a diagnosis. Not an official advisory.</small>
   `;
+}
+
+// Asked when the scan keeps seeing a bloom for a few seconds (decided Oct 11).
+// onAnswer(true) for Yes, onAnswer(false) for No.
+export function askAboutBloom(percent, onAnswer) {
+  const box = document.getElementById("scan-confirm");
+  box.innerHTML = `
+    <p><strong>The scan keeps seeing a possible bloom (${percent}% confident).</strong><br>
+      Does the water look green, scummy or like spilled paint?</p>
+    <button type="button" data-answer="yes">Yes</button>
+    <button type="button" data-answer="no">No</button>
+  `;
+  for (const button of box.querySelectorAll("button")) {
+    button.addEventListener("click", () => {
+      box.innerHTML = "";
+      onAnswer(button.dataset.answer === "yes");
+    });
+  }
+}
+
+// After the user says Yes: what happened, plus the report link
+export function showBloomSaved(areaName) {
+  showScanNote(`Saved on this phone only: your scan now counts toward <strong>${areaName}</strong>'s
+    verdict for today (one level higher, up to Avoid). ${reportLink(NC_REPORT)}`);
+}
+
+export function showBloomNotNear() {
+  showScanNote(`You're not near a lake JordanWatch covers yet, so no verdict changed. ${reportLink(null)}`);
+}
+
+export function showBloomNoLocation(message) {
+  showScanNote(`Couldn't get your location (${message}), so no verdict changed. ${reportLink(null)}`);
+}
+
+export function clearScanNote() {
+  document.getElementById("scan-confirm").innerHTML = "";
+}
+
+function showScanNote(html) {
+  document.getElementById("scan-confirm").innerHTML = `<p>${html}</p>`;
+}
+
+// The "report it" sentence: a specific agency if we know it, otherwise
+// general advice with EPA's page
+function reportLink(agency) {
+  const report = agency
+    ? `<a href="${agency.url}" target="_blank" rel="noopener">report it to ${agency.name}</a>`
+    : `report it to your state's environmental or health agency
+       (<a href="${GENERAL_REPORT_URL}" target="_blank" rel="noopener">EPA lists every state's program</a>)`;
+  return `If you see a bloom, ${report} so it can be checked. Stay out of the water and keep pets away.`;
 }
 
 // Shown when the Jordan Lake data can't be loaded.

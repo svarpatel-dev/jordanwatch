@@ -12,8 +12,12 @@ import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
 import { showMap } from "./map.js";
 import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
+import { getLocation, nearest } from "./location.js";
+import { saveScan, todaysScans } from "./scans.js";
 import { fillStationPicker, showLoading, showResult, showError,
-         showLake, showLakeError, showScanStatus, showScanResult } from "./ui.js";
+         showLake, showLakeError, showScanStatus, showScanResult,
+         askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
+         clearScanNote } from "./ui.js";
 
 // The USGS station at Jordan Lake's dam (lake level and rain), and the
 // Haw River, the lake's main inflow (for runoff after storms)
@@ -29,6 +33,22 @@ const SCAN_EVERY_MS = 500;
 
 // The repeating scan while the camera is on; null while it's off
 let scanTimer = null;
+
+// A bloom has to be steady before the app asks about it (decided Oct 11):
+// "bloom" in at least 5 of the last 6 frames (about 3 seconds)
+const STEADY_FRAMES = 6;
+const STEADY_BLOOMS = 5;
+// A confirmed scan only counts within this distance of an area's shore
+const NEAR_AREA_KM = 2;
+// After an answer, wait this long before asking again
+const ASK_AGAIN_AFTER_MS = 30000;
+
+let recentLabels = [];
+let askingAboutBloom = false;
+let dontAskBefore = 0;
+
+// The latest lake data, kept so the verdicts can be redone after a scan
+let lakeData = null;
 
 // Jordan Lake: satellite data, runoff, lake level and wind, combined into
 // a verdict for each area.
@@ -49,22 +69,30 @@ async function loadLake() {
       })
     ]);
 
-    const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind, runoff);
-    console.log("Lake verdicts:", lake);
-    console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
-
-    showLake(lake);
-
-    // The map gets its own try/catch: if the map library fails to load,
-    // the list of areas above still works.
-    try {
-      showMap(lake, AREAS);
-    } catch (error) {
-      console.error("Failed to show the map", error);
-    }
+    lakeData = { cyan, lakeLevel, wind, runoff };
+    showLakeVerdicts();
   } catch (error) {
     console.error("Failed to load Jordan Lake data", error);
     showLakeError(error.message);
+  }
+}
+
+// Work out every area's verdict (including today's confirmed camera
+// scans) and show the list and the map. Runs again after a scan.
+function showLakeVerdicts() {
+  const { cyan, lakeLevel, wind, runoff } = lakeData;
+  const lake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind, runoff, todaysScans());
+  console.log("Lake verdicts:", lake);
+  console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
+
+  showLake(lake);
+
+  // The map gets its own try/catch: if the map library fails to load,
+  // the list of areas above still works.
+  try {
+    showMap(lake, AREAS);
+  } catch (error) {
+    console.error("Failed to show the map", error);
   }
 }
 
@@ -148,7 +176,9 @@ async function startScan() {
     scanTimer = setInterval(() => {
       // readyState 2+ means the video has a frame to look at
       if (scanVideo.readyState >= 2) {
-        showScanResult(classifyFrame(model, scanVideo));
+        const result = classifyFrame(model, scanVideo);
+        showScanResult(result);
+        checkForSteadyBloom(result);
       }
     }, SCAN_EVERY_MS);
     scanButton.textContent = "Stop camera";
@@ -169,6 +199,50 @@ function stopScan() {
   scanVideo.hidden = true;
   scanButton.textContent = "Start camera";
   showScanStatus("Camera off.");
+  recentLabels = [];
+  if (askingAboutBloom) {
+    askingAboutBloom = false;
+    clearScanNote();
+  }
+}
+
+// Ask the user only when the bloom result is steady, not a one-frame flicker
+function checkForSteadyBloom(result) {
+  recentLabels = [...recentLabels, result.label].slice(-STEADY_FRAMES);
+  const blooms = recentLabels.filter(label => label === "bloom").length;
+
+  if (blooms >= STEADY_BLOOMS && !askingAboutBloom && Date.now() >= dontAskBefore) {
+    askingAboutBloom = true;
+    recentLabels = [];
+    const percent = Math.round(result.confidence * 100);
+    askAboutBloom(percent, answeredYes => answerBloomQuestion(answeredYes, percent));
+  }
+}
+
+// Yes → find the nearest Jordan Lake area and raise its verdict one level
+// (saved on this phone only). No → nothing changes.
+async function answerBloomQuestion(answeredYes, percent) {
+  dontAskBefore = Date.now() + ASK_AGAIN_AFTER_MS;
+  if (!answeredYes) {
+    askingAboutBloom = false;
+    return;
+  }
+
+  try {
+    const here = await getLocation();
+    const closest = nearest(AREAS, here);
+    if (closest && closest.km <= NEAR_AREA_KM) {
+      saveScan({ areaId: closest.place.id, percent });
+      showBloomSaved(closest.place.name);
+      if (lakeData) showLakeVerdicts();
+    } else {
+      showBloomNotNear();
+    }
+  } catch (error) {
+    console.error("Couldn't get the location for the scan", error);
+    showBloomNoLocation(error.message);
+  }
+  askingAboutBloom = false;
 }
 
 loadLake();

@@ -25,15 +25,27 @@ const NO_COVERAGE = [
 // Cary/Apex drinking-water intake (approximate; context only)
 const INTAKE = { lat: 35.7385, lng: -79.0222 };
 
+// The map is built once; after that only the area pins are redrawn (e.g.
+// when a camera scan changes a verdict). Leaflet can't set up the same
+// map box twice.
+let map = null;
+let pinLayer = null;
+
 export function showMap(lake, areas) {
   // Leaflet is a regular <script> in index.html, so it lives on window.L
   const L = window.L;
 
-  const map = L.map("map");
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  const firstTime = map === null;
+  if (firstTime) {
+    map = L.map("map");
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    addFixedMarkers(L);
+    pinLayer = L.layerGroup().addTo(map);
+  }
+  pinLayer.clearLayers();
 
   // Look up each area's verdict by id
   const verdictsById = Object.fromEntries(lake.areas.map(v => [v.id, v]));
@@ -50,13 +62,22 @@ export function showMap(lake, areas) {
       weight: 2,
       fillColor: PIN_COLORS[verdict.level],
       fillOpacity: 0.9
-    }).addTo(map);
+    }).addTo(pinLayer);
 
     pin.bindTooltip(`${area.name}: ${PIN_LABELS[verdict.level]}`);
     pin.on("click", () => openAreaCard(area.id));
     pinSpots.push([area.lat, area.lng]);
   }
 
+  // Zoom the map so every area pin fits on screen (only the first time,
+  // so a redraw doesn't jump away from where the user has panned)
+  if (firstTime) {
+    map.fitBounds(pinSpots, { padding: [20, 20] });
+  }
+}
+
+// Markers that never change: the satellite's blind spots and the intake
+function addFixedMarkers(L) {
   // Gray markers for the satellite's blind spots
   for (const spot of NO_COVERAGE) {
     L.circleMarker([spot.lat, spot.lng], {
@@ -73,9 +94,6 @@ export function showMap(lake, areas) {
   L.marker([INTAKE.lat, INTAKE.lng], { icon: dropIcon })
     .addTo(map)
     .bindTooltip("Cary/Apex drinking-water intake (approximate; context only)");
-
-  // Zoom the map so every area pin fits on screen
-  map.fitBounds(pinSpots, { padding: [20, 20] });
 }
 
 // Opens an area's card in the list and scrolls to it
