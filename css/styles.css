@@ -9,6 +9,15 @@
   border-radius: 8px;
 }
 
+/* The camera view for the scan */
+#scan-video {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+
 /* The drinking-water intake marker: just the 💧, no box around it */
 .intake-icon {
   font-size: 20px;

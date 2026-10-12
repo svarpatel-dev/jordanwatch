@@ -11,8 +11,9 @@ import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
 import { showMap } from "./map.js";
+import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
 import { fillStationPicker, showLoading, showResult, showError,
-         showLake, showLakeError } from "./ui.js";
+         showLake, showLakeError, showScanStatus, showScanResult } from "./ui.js";
 
 // The USGS station at Jordan Lake's dam (lake level and rain), and the
 // Haw River, the lake's main inflow (for runoff after storms)
@@ -20,6 +21,14 @@ const DAM_STATION_ID = "02098197";
 const HAW_RIVER_STATION_ID = "02096960";
 
 const picker = document.getElementById("station-picker");
+const scanButton = document.getElementById("scan-start");
+const scanVideo = document.getElementById("scan-video");
+
+// How often the camera scan looks at the view (milliseconds)
+const SCAN_EVERY_MS = 500;
+
+// The repeating scan while the camera is on; null while it's off
+let scanTimer = null;
 
 // Jordan Lake: satellite data, runoff, lake level and wind, combined into
 // a verdict for each area.
@@ -126,7 +135,59 @@ async function run(station) {
   }
 }
 
+// Camera scan: start the camera and load the model at the same time, then
+// classify the view twice a second.
+async function startScan() {
+  scanButton.disabled = true;
+  scanVideo.hidden = false;
+  showScanStatus("Starting the camera and loading the model…");
+
+  try {
+    const [model] = await Promise.all([loadModel(), startCamera(scanVideo)]);
+
+    scanTimer = setInterval(() => {
+      // readyState 2+ means the video has a frame to look at
+      if (scanVideo.readyState >= 2) {
+        showScanResult(classifyFrame(model, scanVideo));
+      }
+    }, SCAN_EVERY_MS);
+    scanButton.textContent = "Stop camera";
+  } catch (error) {
+    console.error("Camera scan failed", error);
+    stopCamera(scanVideo);
+    scanVideo.hidden = true;
+    showScanStatus(`Couldn't start the scan: ${error.message}. Allow camera access and try again.`);
+  }
+  scanButton.disabled = false;
+}
+
+// Turn the camera off and stop scanning
+function stopScan() {
+  clearInterval(scanTimer);
+  scanTimer = null;
+  stopCamera(scanVideo);
+  scanVideo.hidden = true;
+  scanButton.textContent = "Start camera";
+  showScanStatus("Camera off.");
+}
+
 loadLake();
+
+// One button: starts the camera when it's off, stops it when it's on
+scanButton.addEventListener("click", () => {
+  if (scanTimer === null) {
+    startScan();
+  } else {
+    stopScan();
+  }
+});
+
+// Leaving the page (another app or tab, phone locked) turns the camera off
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && scanTimer !== null) {
+    stopScan();
+  }
+});
 
 fillStationPicker(STATIONS);
 

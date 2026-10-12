@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
+  <!-- TensorFlow.js: runs the camera model in the browser, from the cdnjs CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.22.0/tf.min.js"></script>
+
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -17,6 +20,12 @@
   <h2>Jordan Lake</h2>
   <div id="map"></div>
   <div id="lake">Loading Jordan Lake data…</div>
+
+  <h2>Scan the water</h2>
+  <p><small>Point your phone's camera at the water near the shore. A screening aid, not a diagnosis.</small></p>
+  <button id="scan-start" type="button">Start camera</button>
+  <video id="scan-video" playsinline muted hidden></video>
+  <p id="scan-result"></p>
 
   <h2>Stations</h2>
   <label for="station-picker">Station:</label>

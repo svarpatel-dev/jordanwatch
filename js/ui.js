@@ -64,6 +64,15 @@ const ACTIVITIES = {
   }
 };
 
+// Camera scan results in plain words (never "safe"; a screening aid)
+const SCAN_LABELS = {
+  bloom: "Possible algae bloom or scum",
+  vegetation: "Plants or other harmless vegetation",
+  clear_water: "No bloom visible",
+  not_water: "Point the camera at the water",
+  uncertain: "Uncertain: move closer or try another angle"
+};
+
 // Extra line for areas without a recent satellite reading (decided Oct 5)
 const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
 
@@ -205,6 +214,21 @@ function describeAge(days) {
   if (days === 0) return "today";
   if (days === 1) return "1 day old";
   return `${days} days old`;
+}
+
+// A message under the camera, e.g. "Starting the camera…"
+export function showScanStatus(message) {
+  document.getElementById("scan-result").textContent = message;
+}
+
+// What the camera scan sees right now, with how confident the model is
+export function showScanResult(result) {
+  const percent = Math.round(result.confidence * 100);
+  document.getElementById("scan-result").innerHTML = `
+    <strong>${SCAN_LABELS[result.label]}</strong> <small>(${percent}% confident)</small>
+    ${result.label === "bloom" ? "<br>Stay out of the water and keep pets away." : ""}
+    <br><small>Screening aid, not a diagnosis. Not an official advisory.</small>
+  `;
 }
 
 // Shown when the Jordan Lake data can't be loaded.
