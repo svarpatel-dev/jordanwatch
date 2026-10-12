@@ -84,6 +84,12 @@ def fetch_point(point):
     # Sort by the numeric timestamp, not the "MM-DD-YYYY" text,
     # which doesn't sort correctly as a string.
     latest = max(valid, key=lambda o: o["imageDateLong"])
+
+    # The image before it, for the trend arrow (decided Oct 12): the newest
+    # reading from an earlier day
+    earlier = [o for o in valid if to_date(o["imageDateLong"]) < to_date(latest["imageDateLong"])]
+    previous = max(earlier, key=lambda o: o["imageDateLong"]) if earlier else None
+
     result = {
         **point,
         "status": "ok",
@@ -94,6 +100,8 @@ def fetch_point(point):
         "validPixels": latest["validCellsCount"],
         "frequency": latest.get("satelliteImageFrequency"),
         "belowDetection": False,
+        "previousDate": to_date(previous["imageDateLong"]) if previous else None,
+        "previousCellsPerMl": round(previous["cellConcentration"]) if previous else None,
     }
     reading_dates = {to_date(o["imageDateLong"]) for o in valid}
     return result, reading_dates
@@ -137,9 +145,12 @@ def apply_clean_days(result, reading_dates, clean_days):
                 "maxCellsPerMl": 0,
                 "frequency": "Daily",
                 "belowDetection": True,
-                # keep the last real reading for reference
+                # keep the last real reading for reference; it's also the
+                # previous image for the trend arrow
                 "lastDetectedDate": result.get("imageDate"),
                 "lastDetectedCellsPerMl": result.get("cellsPerMl"),
+                "previousDate": result.get("imageDate"),
+                "previousCellsPerMl": result.get("cellsPerMl"),
             }
     return result
 

@@ -14,6 +14,13 @@ const WHO_MODERATE_RISK = 100000;
 const IMAGE_CURRENT_DAYS = 7;
 const IMAGE_MAX_DAYS = 14;
 
+// Trend between the latest image and the one before it (decided Oct 12;
+// same 1.5x rule as the forecast test). "Below detection" counts as this
+// level, so ratios still work.
+const TREND_RATIO = 1.5;
+const TREND_MAX_GAP_DAYS = 14;
+const BELOW_DETECTION_CELLS = 3000;
+
 // Lake level at the dam. Normal pool is 216.0 ft (USACE); 220 ft is our
 // own "high water" line, since there's no official closure level.
 const NORMAL_POOL_FT = 216;
@@ -79,6 +86,7 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
       imageAgeDays: point?.imageAgeDays ?? null,
       frequency: point?.frequency ?? null,
       noRecentSatellite: signals[0].noRecentSatellite,
+      trend: satelliteTrend(point),
       borrowedFrom: borrowed ? point?.name ?? null : null,
       reasons: signals
     };
@@ -153,6 +161,32 @@ function satelliteSignal(point, borrowed) {
   }
 
   return { source: "satellite", level, noRecentSatellite: false, text };
+}
+
+// --- Trend between the last two images (decided Oct 12) ---
+// A change between two satellite images, not a forecast. Returns null when
+// there's no earlier image, or it's more than 14 days before the latest.
+function satelliteTrend(point) {
+  if (!point || point.status !== "ok" || !point.previousDate) return null;
+
+  const daysApart = (new Date(point.imageDate) - new Date(point.previousDate)) / (1000 * 60 * 60 * 24);
+  if (daysApart > TREND_MAX_GAP_DAYS) return null;
+
+  const now = Math.max(point.cellsPerMl, BELOW_DETECTION_CELLS);
+  const before = Math.max(point.previousCellsPerMl, BELOW_DETECTION_CELLS);
+  const ratio = now / before;
+
+  let direction = "steady";
+  if (ratio > TREND_RATIO) direction = "worse";
+  if (ratio < 1 / TREND_RATIO) direction = "better";
+
+  return {
+    direction,
+    sinceDate: point.previousDate,
+    fromCells: point.previousCellsPerMl,
+    toCells: point.cellsPerMl,
+    toBelowDetection: point.belowDetection === true
+  };
 }
 
 // --- Lake level at the dam (decided Oct 4) ---

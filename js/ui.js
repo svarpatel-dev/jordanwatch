@@ -79,6 +79,14 @@ const SCAN_LABELS = {
 const NC_REPORT = { url: "https://survey123.arcgis.com/share/deb256fcc1134bbc83b72c80109392f1", name: "NC DEQ" };
 const GENERAL_REPORT_URL = "https://www.epa.gov/habs/state-tribal-hab-programs-and-resources";
 
+// Trend between the last two satellite images (decided Oct 12). Plain text
+// arrows for now; real icons come in the Week 4 design pass.
+const TREND_LABELS = {
+  worse: "↑ getting worse",
+  better: "↓ getting better",
+  steady: "→ about the same"
+};
+
 // Extra line for areas without a recent satellite reading (decided Oct 5)
 const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
 
@@ -183,6 +191,7 @@ function areaCard(area) {
     <details id="area-${area.id}">
       <summary><strong>${area.name}</strong>: ${VERDICT_LABELS[area.level]}</summary>
       <p><small>${area.swimBeach ? "🏖 Swim beach" : "No designated swim beach"} · ${image}</small></p>
+      ${trendLine(area.trend)}
       ${area.borrowedFrom ? `<p><em>No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</em></p>` : ""}
       <p><strong>Why:</strong></p>
       <ul>${reasons}</ul>
@@ -195,6 +204,16 @@ function areaCard(area) {
       ${area.noRecentSatellite ? `<p><em>${NO_RECENT_SATELLITE}</em></p>` : ""}
       ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${VERDICT_LABELS[area.goInstead.level]}${area.goInstead.swimBeach ? ", swim beach" : ""})</p>` : ""}
     </details>
+  `;
+}
+
+// "Trend since Oct 6: ↑ getting worse (210,000 → 602,560 cells/mL)"
+function trendLine(trend) {
+  if (!trend) return "";
+  const to = trend.toBelowDetection ? "below detection" : `${trend.toCells.toLocaleString()} cells/mL`;
+  return `
+    <p><small>Trend since ${trend.sinceDate}: <strong>${TREND_LABELS[trend.direction]}</strong>
+      (${trend.fromCells.toLocaleString()} → ${to}). A change between two satellite images, not a forecast.</small></p>
   `;
 }
 
