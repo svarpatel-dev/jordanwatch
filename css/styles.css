@@ -1,6 +1,15 @@
 /* JordanWatch styles. The full design comes in Week 4; for now, only what
    the map needs to show up. */
 
+/* The "If exposed" box: easy to spot at the top of the page */
+#if-exposed {
+  max-width: 720px;
+  margin: 8px 0 16px;
+  padding: 8px 12px;
+  border: 2px solid #d93025;
+  border-radius: 8px;
+}
+
 /* A Leaflet map needs a set height, or it collapses to nothing */
 #map {
   height: 360px;
