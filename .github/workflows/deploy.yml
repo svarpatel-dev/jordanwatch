@@ -1,0 +1,86 @@
+# Builds and publishes the live site on GitHub Pages (switched Oct 13 from
+# "deploy from branch"): the repo's files plus fresh satellite map tiles,
+# which are made here and never stored in git.
+name: Deploy site
+
+on:
+  # Every push to main (my code changes)
+  push:
+    branches: [main]
+  # Every time the satellite bot finishes (its cyan.json commits can't start
+  # this workflow by themselves)
+  workflow_run:
+    workflows: ["Fetch CyAN satellite data"]
+    types: [completed]
+  # Adds a "Run workflow" button on GitHub for manual runs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time: a newer one waits instead of colliding
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the tile script's libraries
+        run: pip install pillow numpy
+
+      # The last good tiles, in case EPA's image can't be downloaded today
+      - name: Bring back the last good tiles
+        uses: actions/cache/restore@v6
+        with:
+          path: tiles-cache
+          key: tiles-${{ github.run_id }}
+          restore-keys: tiles-
+
+      # Fails soft: if EPA is down, the old tiles stay and the deploy goes on
+      - name: Make fresh satellite tiles
+        run: python scripts/make_tiles.py tiles-cache
+        continue-on-error: true
+
+      - name: Save the tiles for next time
+        if: hashFiles('tiles-cache/info.json') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: tiles-cache
+          key: tiles-${{ github.run_id }}
+
+      - name: Put the site together
+        run: |
+          mkdir _site
+          rsync -a --exclude .git --exclude .github --exclude tiles-cache --exclude _site ./ _site/
+          if [ -d tiles-cache ]; then cp -r tiles-cache _site/tiles; fi
+
+      - name: Set up GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
