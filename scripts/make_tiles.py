@@ -1,10 +1,16 @@
 """
 Make the nationwide satellite map layer for JordanWatch.
 
-Downloads EPA CyAN's nationwide weekly cyanobacteria image (the past 7 days
-of satellite passes combined), recolors it with JordanWatch's own severity
-scale, and cuts it into 256 x 256 map tiles (tiles/z/x/y.png) that the map
-loads as a layer. Runs in GitHub Actions on every deploy (deploy.yml).
+Downloads EPA CyAN's newest nationwide cyanobacteria images, recolors them
+with JordanWatch's own severity scale, and cuts them into 256 x 256 map
+tiles (tiles/z/x/y.png) that the map loads as a layer. Runs in GitHub
+Actions on every deploy (deploy.yml).
+
+Newest data first (decided Oct 13, so the map agrees with the verdict pins):
+every pixel shows its newest satellite reading. The DAILY images from the
+last 7 days are stacked newest first; where a day was cloudy, an older day
+fills in, and the newest WEEKLY image (the past 7 days combined) fills
+whatever is still empty.
 
 Recoloring (decided Oct 12-13): EPA draws each satellite level 1-253 in its
 own color scale. epa_cyan_colors.json maps every EPA color back to its level
@@ -33,11 +39,12 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None   # EPA's image is 263 million pixels, on purpose
 
-IMAGE_URL = "https://cyan.epa.gov/waterbody/conus_image/?year={year}&day={day}&daily=False"
+IMAGE_URL = "https://cyan.epa.gov/waterbody/conus_image/?year={year}&day={day}&daily={daily}"
 HEADERS = {"User-Agent": "JordanWatch student project (github.com/svarpatel-dev/jordanwatch)"}
 COLOR_TABLE = Path(__file__).resolve().parent / "epa_cyan_colors.json"
 
 LOOK_BACK_DAYS = 10    # EPA's newest image can be a few days behind
+DAILY_DAYS = 7         # how many days of daily images to stack
 MIN_ZOOM, MAX_ZOOM = 4, 9
 TILE = 256
 
@@ -67,35 +74,65 @@ def severity_color(cells):
     return color
 
 
-def download_newest_image():
-    """The newest weekly image from the last 10 days, or None."""
+def download_image(day, daily):
+    """EPA's daily or weekly image for one day, or None if there isn't one."""
+    kind = "daily" if daily else "weekly"
+    url = IMAGE_URL.format(year=day.year, day=day.timetuple().tm_yday, daily=daily)
+    try:
+        request = urllib.request.Request(url, headers=HEADERS)
+        with urllib.request.urlopen(request, timeout=300) as response:
+            data = response.read()
+    except Exception as error:
+        print(f"{day} {kind}: download failed ({error})")
+        return None
+    # A missing day comes back as a short JSON message, not a PNG
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        print(f"{day} {kind}: no image")
+        return None
+    print(f"{day} {kind}: got it ({len(data) // 1_000_000} MB)")
+    return Image.open(io.BytesIO(data))
+
+
+def download_dailies():
+    """Daily images from the last 7 days, newest first: [(day, image), ...]."""
+    today = datetime.now(timezone.utc).date()
+    found = []
+    for back in range(DAILY_DAYS):
+        day = today - timedelta(days=back)
+        image = download_image(day, daily=True)
+        if image is not None:
+            found.append((day, image))
+    return found
+
+
+def download_newest_weekly():
+    """The newest weekly image from the last 10 days: (day, image) or (None, None)."""
     today = datetime.now(timezone.utc).date()
     for back in range(LOOK_BACK_DAYS + 1):
         day = today - timedelta(days=back)
-        url = IMAGE_URL.format(year=day.year, day=day.timetuple().tm_yday)
-        try:
-            request = urllib.request.Request(url, headers=HEADERS)
-            with urllib.request.urlopen(request, timeout=300) as response:
-                data = response.read()
-        except Exception as error:
-            print(f"{day}: download failed ({error})")
-            continue
-        # A missing day comes back as a short JSON message, not a PNG
-        if data[:8] != b"\x89PNG\r\n\x1a\n":
-            print(f"{day}: no image yet")
-            continue
-        print(f"{day}: got the weekly image ({len(data) // 1_000_000} MB)")
-        return day, Image.open(io.BytesIO(data))
+        image = download_image(day, daily=False)
+        if image is not None:
+            return day, image
     return None, None
 
 
-def recolor(image):
+def newest_first(images):
+    """Stack images (newest first) into one: each pixel comes from the first
+    image that saw it. Transparent = no data there (clouds, land, no pass)."""
+    pixels = np.asarray(images[0].convert("RGBA")).copy()
+    for older in images[1:]:
+        older_pixels = np.asarray(older.convert("RGBA"))
+        empty = pixels[..., 3] == 0
+        pixels[empty] = older_pixels[empty]
+    return pixels
+
+
+def recolor(pixels):
     """EPA colors -> our severity colors (transparent stays transparent)."""
     table = json.loads(COLOR_TABLE.read_text())
     epa_colors = np.array([[int(h[i:i + 2], 16) for i in (1, 3, 5)] for h in table])
     our_colors = np.array([severity_color(level_to_cells(level)) for level in table.values()])
 
-    pixels = np.asarray(image.convert("RGBA")).copy()
     seen = pixels[..., 3] > 0
     rgb = pixels[seen][:, :3].astype(int)
 
@@ -161,14 +198,17 @@ def cut_tiles(image, bounds, out_dir):
 def main():
     out_dir = Path(sys.argv[1] if len(sys.argv) > 1 else "tiles")
 
-    day, image = download_newest_image()
-    if image is None:
+    dailies = download_dailies()
+    weekly_day, weekly = download_newest_weekly()
+    images = [image for _, image in dailies] + ([weekly] if weekly is not None else [])
+    if not images:
         # Fail soft: keep whatever tiles are already there
         print("No EPA image found; keeping the previous tiles")
         return
 
-    bounds = ast.literal_eval(image.info["Bounds"])
-    recolored = recolor(image)
+    # All of EPA's images cover the same area with the same pixel grid
+    bounds = ast.literal_eval(images[0].info["Bounds"])
+    recolored = recolor(newest_first(images))
 
     # Start fresh so old tiles from an earlier week never linger
     if out_dir.exists():
@@ -177,10 +217,13 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written = cut_tiles(recolored, bounds, out_dir)
-    info = {"imageDate": day.isoformat(), "kind": "weekly", "source": "EPA CyAN",
+    info = {"newestDate": dailies[0][0].isoformat() if dailies else None,
+            "dailyDates": [day.isoformat() for day, _ in dailies],
+            "weeklyDate": weekly_day.isoformat() if weekly_day else None,
+            "source": "EPA CyAN",
             "madeAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     (out_dir / "info.json").write_text(json.dumps(info, indent=2) + "\n")
-    print(f"{written} tiles written to {out_dir}/ (image of {day})")
+    print(f"{written} tiles written to {out_dir}/ ({len(dailies)} daily images, weekly {weekly_day})")
 
 
 if __name__ == "__main__":

@@ -25,6 +25,20 @@ const NO_COVERAGE = [
 // Cary/Apex drinking-water intake (approximate; context only)
 const INTAKE = { lat: 35.7385, lng: -79.0222 };
 
+// The nationwide satellite severity layer (decided Oct 12-13): tiles made by
+// scripts/make_tiles.py on every deploy, showing each spot's newest satellite
+// reading from the past week. The legend uses the same colors and levels.
+const SATELLITE_TILES = "tiles/{z}/{x}/{y}.png";
+const SATELLITE_INFO = "tiles/info.json";
+const SEVERITY_LEGEND = [
+  { color: "#fff1a8", label: "Low Risk", detail: "under 20,000" },
+  { color: "#fec44f", label: "Caution", detail: "20,000–50,000" },
+  { color: "#fd8d3c", label: "Caution", detail: "50,000–100,000" },
+  { color: "#f03b20", label: "Avoid", detail: "100,000–500,000" },
+  { color: "#bd0026", label: "Avoid", detail: "500,000–1 million" },
+  { color: "#54278f", label: "Avoid", detail: "over 1 million" }
+];
+
 // The map is built once; after that only the area pins are redrawn (e.g.
 // when a camera scan changes a verdict). Leaflet can't set up the same
 // map box twice.
@@ -44,6 +58,9 @@ export function showMap(lake, areas) {
     }).addTo(map);
     addFixedMarkers(L);
     pinLayer = L.layerGroup().addTo(map);
+
+    // Not awaited: the pins show right away, the satellite colors when ready
+    addSatelliteLayer(L).catch(error => console.error("Failed to add the satellite layer", error));
   }
   pinLayer.clearLayers();
 
@@ -94,6 +111,41 @@ function addFixedMarkers(L) {
   L.marker([INTAKE.lat, INTAKE.lng], { icon: dropIcon })
     .addTo(map)
     .bindTooltip("Cary/Apex drinking-water intake (approximate; context only)");
+}
+
+// The satellite severity colors + a switch + a legend. Skipped quietly if the
+// tiles aren't there: the rest of the map still works. The colors sit under
+// the verdict pins (pins are the answer, colors the evidence).
+async function addSatelliteLayer(L) {
+  const response = await fetch(SATELLITE_INFO, { cache: "no-cache" });
+  if (!response.ok) return;
+  const info = await response.json();
+
+  const satellite = L.tileLayer(SATELLITE_TILES, {
+    maxNativeZoom: 9,   // tiles go up to zoom 9; closer in, Leaflet enlarges them
+    opacity: 0.85,
+    attribution: "Satellite: EPA CyAN"
+  }).addTo(map);
+
+  L.control.layers(null, { "Satellite: newest readings": satellite }, { collapsed: false }).addTo(map);
+  addLegend(L, info.newestDate ?? info.weeklyDate);
+}
+
+function addLegend(L, newestDate) {
+  const legend = L.control({ position: "bottomleft" });
+  legend.onAdd = () => {
+    const box = L.DomUtil.create("div", "map-legend");
+    const rows = SEVERITY_LEGEND
+      .map(s => `<span class="swatch" style="background:${s.color}"></span>${s.label}: ${s.detail}`)
+      .join("<br>");
+    box.innerHTML = `
+      <strong>Satellite: cells/mL</strong><br>
+      ${rows}<br>
+      <small>EPA CyAN estimate: each spot's newest<br>reading from the week up to ${newestDate}.<br>WHO 1999/2003 levels.</small>
+    `;
+    return box;
+  };
+  legend.addTo(map);
 }
 
 // Opens an area's card in the list and scrolls to it
