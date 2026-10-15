@@ -1,7 +1,8 @@
 // The lake verdict engine: turns satellite, runoff, lake level and wind data into
 // an Avoid / Caution / Low Risk verdict for each Jordan Lake area, with the
 // reasons. Knows nothing about the page or where the data came from.
-// Rules decided Oct 3–5 (see the project notes: Key decisions → Risk engine).
+// Rules decided Oct 3–5 (see the project notes: Key decisions → Risk engine);
+// rule B, severity within Avoid and "least affected" decided Oct 13, built Oct 15.
 
 // Verdict levels from best to worst. A higher position means worse.
 const LEVELS = ["low", "caution", "avoid"];
@@ -9,6 +10,11 @@ const LEVELS = ["low", "caution", "avoid"];
 // WHO 1999/2003 recreational guideline levels for cyanobacteria (cells/mL)
 const WHO_LOW_RISK = 20000;
 const WHO_MODERATE_RISK = 100000;
+
+// Severity within Avoid (decided Oct 13), the same bands as the map legend:
+// "high" 100,000–500,000 · "very high" 500,000–1 million · "extreme" above
+const VERY_HIGH_CELLS = 500000;
+const EXTREME_CELLS = 1000000;
 
 // Satellite image age limits, in days
 const IMAGE_CURRENT_DAYS = 7;
@@ -81,6 +87,9 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
       name: area.name,
       swimBeach: area.swimBeach,
       level,
+      // How bad an Avoid is, from the satellite reading (decided Oct 13);
+      // null when the verdict isn't Avoid or the satellite isn't the reason
+      severity: level === "avoid" ? avoidSeverity(point) : null,
       cellsPerMl: point?.cellsPerMl ?? null,
       imageDate: point?.imageDate ?? null,
       imageAgeDays: point?.imageAgeDays ?? null,
@@ -108,13 +117,19 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
     const bestLevel = better[0].level;
     const tied = better.filter(other => other.level === bestLevel);
     const pick = tied.find(other => other.swimBeach) ?? tied[0];
-    verdict.goInstead = { id: pick.id, name: pick.name, level: pick.level, swimBeach: pick.swimBeach };
+    verdict.goInstead = { id: pick.id, name: pick.name, level: pick.level,
+                          severity: pick.severity, swimBeach: pick.swimBeach };
   }
 
+  // Every area at Avoid (decided Oct 13): there's no better area to send
+  // people to, so point to the least affected one. Swimming is never
+  // suggested; the page says shore activities only.
+  const allAvoid = verdicts.every(v => v.level === "avoid");
 
   return {
     areas: verdicts,
     ranked,
+    leastAffected: allAvoid ? leastAffectedArea(ranked) : null,
     intake: pointsById["intake"] ?? null,
     checkedAt: cyan.updatedAt
   };
@@ -139,7 +154,7 @@ function satelliteSignal(point, borrowed) {
   // stored as 0 cells/mL, so it lands in the Low Risk branch below
   const amount = point.belowDetection
     ? `${prefix}below detection (under about 6,500 cells/mL)`
-    : `${prefix}about ${cells.toLocaleString()} cells/mL`;
+    : `${prefix}about ${cells.toLocaleString()} cells/mL (average of the nearby pixels)`;
   let level;
   let text;
 
@@ -154,6 +169,17 @@ function satelliteSignal(point, borrowed) {
     text = `${amount}, below the WHO 1999/2003 low-risk level (20,000).`;
   }
 
+  // Rule B (decided Oct 13): the average can hide a few much higher pixels
+  // (Ebenezer Church, Oct 12: average 14,859, highest 155,597). If any nearby
+  // pixel is at the Avoid level, the area can't be Low Risk.
+  const highest = point.maxCellsPerMl ?? 0;
+  if (highest >= WHO_MODERATE_RISK && level === "low") {
+    level = "caution";
+    text += ` But the highest one was about ${highest.toLocaleString()}, above 100,000, so low levels can't be confirmed.`;
+  } else if (highest >= WHO_MODERATE_RISK && level === "caution") {
+    text += ` The highest one was about ${highest.toLocaleString()}.`;
+  }
+
   // An image 7–14 days old can keep a warning but can't give an all-clear
   if (point.imageAgeDays > IMAGE_CURRENT_DAYS && level === "low") {
     level = "caution";
@@ -161,6 +187,36 @@ function satelliteSignal(point, borrowed) {
   }
 
   return { source: "satellite", level, noRecentSatellite: false, text };
+}
+
+// --- Severity within Avoid (decided Oct 13) ---
+// From the latest recent reading. Null when there's no recent reading at the
+// Avoid level (e.g. wind or a camera scan raised the verdict instead).
+function avoidSeverity(point) {
+  if (!point || point.status !== "ok" || point.imageAgeDays > IMAGE_MAX_DAYS) return null;
+
+  const cells = point.cellsPerMl;
+  if (cells >= EXTREME_CELLS) return "extreme";
+  if (cells >= VERY_HIGH_CELLS) return "very-high";
+  if (cells >= WHO_MODERATE_RISK) return "high";
+  return null;
+}
+
+// --- Least affected area, when every area is at Avoid (decided Oct 13) ---
+// The area with the lowest recent satellite reading. If a swim beach has the
+// same severity (e.g. both "Avoid: high"), the beach comes first, like
+// "Go here instead" (decided Oct 7). Only areas with their own recent reading
+// count (not Robeson Creek, which borrows Vista Point's).
+function leastAffectedArea(ranked) {
+  const withReading = ranked.filter(a => a.cellsPerMl !== null && !a.noRecentSatellite && !a.borrowedFrom);
+  if (withReading.length === 0) return null;
+
+  // ranked is best first, so the first one has the lowest reading
+  const lowest = withReading[0];
+  const sameSeverity = withReading.filter(a => a.severity === lowest.severity);
+  const pick = sameSeverity.find(a => a.swimBeach) ?? lowest;
+  return { id: pick.id, name: pick.name, level: pick.level,
+           severity: pick.severity, swimBeach: pick.swimBeach };
 }
 
 // --- Trend between the last two images (decided Oct 12) ---
@@ -268,7 +324,7 @@ function windSignal(area, point, wind) {
     return noEffect(`Wind: light (${speed} m/s) from the ${from}, toward this shore (no recent satellite image to show how much algae there is).`);
   }
   if (point.cellsPerMl < WHO_LOW_RISK) {
-    return noEffect(`Wind: light (${speed} m/s) from the ${from}, toward this shore, but algae levels are low.`);
+    return noEffect(`Wind: light (${speed} m/s) from the ${from}, toward this shore, but the average algae level here is low.`);
   }
 
   return { source: "wind", level: null, raises: true,

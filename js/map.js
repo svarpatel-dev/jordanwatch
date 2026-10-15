@@ -8,10 +8,26 @@ const PIN_COLORS = {
   low: "#1e8e3e"      // green
 };
 
+// Avoid pins get darker as the satellite reading gets worse (decided Oct 13),
+// in the same colors as the satellite legend below. An Avoid with no severity
+// (raised by wind or a camera scan) keeps the plain red.
+const AVOID_SEVERITY_COLORS = {
+  high: "#f03b20",
+  "very-high": "#bd0026",
+  extreme: "#54278f"
+};
+
 const PIN_LABELS = {
   avoid: "Avoid",
   caution: "Caution",
   low: "Low Risk"
+};
+
+// Same words as the area cards: "Avoid: very high"
+const SEVERITY_LABELS = {
+  high: "high",
+  "very-high": "very high",
+  extreme: "extreme"
 };
 
 // Parts of the lake the satellite can't see, because its 300 m pixels
@@ -73,15 +89,19 @@ export function showMap(lake, areas) {
     const verdict = verdictsById[area.id];
     if (!verdict) continue;
 
+    // severity is only set for Avoid areas, so other pins keep their color
+    const fill = AVOID_SEVERITY_COLORS[verdict.severity] ?? PIN_COLORS[verdict.level];
+    const severity = verdict.severity ? `: ${SEVERITY_LABELS[verdict.severity]}` : "";
+
     const pin = L.circleMarker([area.lat, area.lng], {
       radius: 10,
       color: "#ffffff",
       weight: 2,
-      fillColor: PIN_COLORS[verdict.level],
+      fillColor: fill,
       fillOpacity: 0.9
     }).addTo(pinLayer);
 
-    pin.bindTooltip(`${area.name}: ${PIN_LABELS[verdict.level]}`);
+    pin.bindTooltip(`${area.name}: ${PIN_LABELS[verdict.level]}${severity}`);
     pin.on("click", () => openAreaCard(area.id));
     pinSpots.push([area.lat, area.lng]);
   }

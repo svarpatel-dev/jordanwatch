@@ -13,6 +13,12 @@ pixel counts. If a recent image saw most of the lake, most of what it saw
 was below detection, and a point has no reading that day, that point is
 marked "below detection" on that date (cellsPerMl 0, belowDetection true).
 
+Recent blooms (bug 11, fixed Oct 15): one arm of the lake can still be
+blooming while the rest is clean, and the whole-lake counts can't tell.
+So a point whose own latest reading was at the Caution level or higher
+(20,000+ cells/mL) is never marked clean within 7 days of that reading;
+it keeps its warning.
+
 Run locally:  python3 scripts/fetch_cyan.py
 """
 
@@ -55,6 +61,10 @@ LOOKBACK_DAYS = 14   # the app ignores satellite images older than this anyway
 CLEAR_SHARE = 0.8    # the image must see at least 80% of the lake
 CLEAN_SHARE = 0.5    # and at least half of what it saw must be below detection,
                      # so a point that's missing on a bloom day is never called clean
+
+# Bug 11: a point that was blooming this recently keeps its warning
+RECENT_BLOOM_CELLS = 20000   # the WHO 1999/2003 low-risk level (Caution and up)
+RECENT_BLOOM_DAYS = 7
 
 # cyan.json goes in the repo's top folder, next to index.html
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "cyan.json"
@@ -136,6 +146,11 @@ def apply_clean_days(result, reading_dates, clean_days):
         day_text = day.isoformat()
         if result.get("imageDate") and day_text <= result["imageDate"]:
             return result   # the point's own reading is newer; keep it
+        if bloomed_recently(result, day):
+            # Bug 11: this spot was blooming within the last week, so the
+            # rest of the lake being clean doesn't prove it is. Older clean
+            # days are even closer to that bloom, so stop here.
+            return result
         if day_text not in reading_dates:
             return {
                 **result,
@@ -153,6 +168,15 @@ def apply_clean_days(result, reading_dates, clean_days):
                 "previousCellsPerMl": result.get("cellsPerMl"),
             }
     return result
+
+
+def bloomed_recently(result, day):
+    """True if this point's latest reading was at the Caution level or higher
+    (20,000+ cells/mL) no more than 7 days before this day (bug 11)."""
+    if result.get("status") != "ok":
+        return False
+    days_since = (day - date.fromisoformat(result["imageDate"])).days
+    return result["cellsPerMl"] >= RECENT_BLOOM_CELLS and days_since <= RECENT_BLOOM_DAYS
 
 
 def to_date(milliseconds):

@@ -41,6 +41,13 @@ const VERDICT_LABELS = {
   low: "🟢 Low Risk"
 };
 
+// How bad an Avoid is (decided Oct 13), the same bands as the map legend
+const SEVERITY_LABELS = {
+  high: "high",
+  "very-high": "very high",
+  extreme: "extreme"
+};
+
 // What to do at each verdict (decided Oct 5; based on CDC, NC DHHS and
 // NC State Parks guidance)
 const ACTIVITIES = {
@@ -169,17 +176,30 @@ export function showLake(lake) {
   lakeEl.innerHTML = `
     <p><strong>Today at Jordan Lake:</strong>
       ${counts.avoid} Avoid · ${counts.caution} Caution · ${counts.low} Low Risk</p>
+    ${leastAffectedNote(lake.leastAffected)}
     <h3>Best spots today</h3>
     <p><small>Tap an area to see why and what to do.</small></p>
-    ${lake.ranked.map(areaCard).join("")}
+    ${lake.ranked.map(area => areaCard(area, lake.leastAffected)).join("")}
     ${intakeNote(lake.intake)}
     <p><small>Satellite estimates from EPA CyAN, last checked
       ${new Date(lake.checkedAt).toLocaleString()}. Not an official advisory.</small></p>
   `;
 }
 
-// One area's card: verdict, why, what to do, and where to go instead
-function areaCard(area) {
+// Shown at the top when every area is at Avoid (decided Oct 13): where it's
+// least bad, and that it's still shore activities only. Never suggests swimming.
+function leastAffectedNote(least) {
+  if (!least) return "";
+  return `
+    <p><strong>Every area is at Avoid today.</strong> Least affected:
+      ${least.name} (${verdictLabel(least)}${least.swimBeach ? ", swim beach" : ""}).
+      Shore activities only: no swimming or wading, and keep pets away from the water.</p>
+  `;
+}
+
+// One area's card: verdict, why, what to do, and where to go instead.
+// leastAffected is null unless every area is at Avoid.
+function areaCard(area, leastAffected) {
   const activities = ACTIVITIES[area.level];
   const reasons = area.reasons.map(r => `<li>${r.text}</li>`).join("");
 
@@ -189,7 +209,7 @@ function areaCard(area) {
 
   return `
     <details id="area-${area.id}">
-      <summary><strong>${area.name}</strong>: ${VERDICT_LABELS[area.level]}</summary>
+      <summary><strong>${area.name}</strong>: ${verdictLabel(area)}</summary>
       <p><small>${area.swimBeach ? "🏖 Swim beach" : "No designated swim beach"} · ${image}</small></p>
       ${trendLine(area.trend)}
       ${area.borrowedFrom ? `<p><em>No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</em></p>` : ""}
@@ -202,9 +222,26 @@ function areaCard(area) {
         🐕 ${activities.pets} · 👨‍👩‍👧 ${activities.families}
       </p>
       ${area.noRecentSatellite ? `<p><em>${NO_RECENT_SATELLITE}</em></p>` : ""}
-      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${VERDICT_LABELS[area.goInstead.level]}${area.goInstead.swimBeach ? ", swim beach" : ""})</p>` : ""}
+      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${verdictLabel(area.goInstead)}${area.goInstead.swimBeach ? ", swim beach" : ""})</p>` : ""}
+      ${leastAffectedLine(area, leastAffected)}
     </details>
   `;
+}
+
+// On each card when every area is at Avoid: the least affected area, or a
+// note that this is it
+function leastAffectedLine(area, least) {
+  if (!least) return "";
+  if (least.id === area.id) {
+    return `<p><strong>Least affected area today</strong>, but still at Avoid: shore activities only.</p>`;
+  }
+  return `<p>Least affected today: <strong>${least.name}</strong> (${verdictLabel(least)}), but every area is at Avoid: shore activities only.</p>`;
+}
+
+// The verdict label plus how bad an Avoid is, e.g. "Avoid: very high"
+function verdictLabel(item) {
+  const severity = item.severity ? `: ${SEVERITY_LABELS[item.severity]}` : "";
+  return `${VERDICT_LABELS[item.level]}${severity}`;
 }
 
 // "Trend since Oct 6: ↑ getting worse (210,000 → 602,560 cells/mL)"
