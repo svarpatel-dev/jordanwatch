@@ -32,6 +32,21 @@
       Not medical advice.</small></p>
   </details>
 
+  <!-- See what's near you (decided Oct 10-11): GPS is asked for only after
+       a tap, or the user types a ZIP code. Works without either. -->
+  <section id="near-you">
+    <strong>See what's near you</strong><br>
+    <button id="near-gps" type="button">Use my location</button>
+    <form id="near-zip-form">
+      <label for="near-zip">or ZIP code:</label>
+      <input id="near-zip" type="text" inputmode="numeric" maxlength="5" size="6" autocomplete="postal-code">
+      <button type="submit">Show</button>
+    </form>
+    <button id="near-clear" type="button" hidden>Clear</button>
+    <br><small>Your location stays on this phone.</small>
+    <div id="near-result"></div>
+  </section>
+
   <h2>Jordan Lake</h2>
   <div id="map"></div>
   <div id="lake">Loading Jordan Lake data…</div>

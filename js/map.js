@@ -55,11 +55,31 @@ const SEVERITY_LEGEND = [
   { color: "#54278f", label: "Avoid", detail: "over 1 million" }
 ];
 
+// How close the map zooms in on the user's place: GPS is precise, a ZIP
+// code's middle is only roughly where they are
+const GPS_ZOOM = 11;
+const ZIP_ZOOM = 10;
+// Far from Jordan Lake (any place), zoom out so the satellite colors of the
+// lakes around the user show (decided Oct 15)
+const FAR_ZOOM = 9;
+// How far above the map's middle the "You are here" dot sits (pixels)
+const DOT_ABOVE_MIDDLE_PX = 90;
+
 // The map is built once; after that only the area pins are redrawn (e.g.
 // when a camera scan changes a verdict). Leaflet can't set up the same
 // map box twice.
 let map = null;
 let pinLayer = null;
+
+// "See what's near you": the user's place and how far to zoom in. It can
+// arrive before the map is built (a saved ZIP loads fast), so it's kept here
+// and drawn as soon as the map exists.
+let youAreHere = null;
+let hereZoom = null;
+let hereLayer = null;
+
+// The area pins' spots, to zoom back to Jordan Lake after "Clear"
+let lakeView = null;
 
 export function showMap(lake, areas) {
   // Leaflet is a regular <script> in index.html, so it lives on window.L
@@ -74,6 +94,7 @@ export function showMap(lake, areas) {
     }).addTo(map);
     addFixedMarkers(L);
     pinLayer = L.layerGroup().addTo(map);
+    hereLayer = L.layerGroup().addTo(map);
 
     // Not awaited: the pins show right away, the satellite colors when ready
     addSatelliteLayer(L).catch(error => console.error("Failed to add the satellite layer", error));
@@ -107,10 +128,68 @@ export function showMap(lake, areas) {
   }
 
   // Zoom the map so every area pin fits on screen (only the first time,
-  // so a redraw doesn't jump away from where the user has panned)
+  // so a redraw doesn't jump away from where the user has panned). If the
+  // user already chose a place, center on it instead.
   if (firstTime) {
-    map.fitBounds(pinSpots, { padding: [20, 20] });
+    lakeView = pinSpots;
+    if (youAreHere) {
+      drawYouAreHere();
+    } else {
+      map.fitBounds(lakeView, { padding: [20, 20] });
+    }
   }
+}
+
+// Put the "You are here" dot on the map and center on it.
+// place = { lat, lng, source: "gps" or "zip", accuracyM (GPS) or zip (ZIP) };
+// nearLake = true when it's close to a Jordan Lake area
+export function showYouAreHere(place, nearLake) {
+  youAreHere = place;
+  if (!nearLake) {
+    hereZoom = FAR_ZOOM;
+  } else {
+    hereZoom = place.source === "gps" ? GPS_ZOOM : ZIP_ZOOM;
+  }
+  if (map !== null) {
+    drawYouAreHere();
+  }
+}
+
+// Remove the dot and zoom back out to Jordan Lake
+export function clearYouAreHere() {
+  youAreHere = null;
+  if (map !== null) {
+    hereLayer.clearLayers();
+    map.fitBounds(lakeView, { padding: [20, 20] });
+  }
+}
+
+// A plain dot for now (decided Oct 11; its own look comes in the design
+// pass). With GPS, a light circle shows how accurate the location is.
+function drawYouAreHere() {
+  const L = window.L;
+  const place = youAreHere;
+  hereLayer.clearLayers();
+
+  if (place.accuracyM) {
+    L.circle([place.lat, place.lng], {
+      radius: place.accuracyM,
+      color: "#1a73e8",
+      weight: 1,
+      fillOpacity: 0.1,
+      interactive: false   // taps go through to the pins underneath
+    }).addTo(hereLayer);
+  }
+
+  // A <div> drawn by CSS (.you-are-here in styles.css), not an image
+  const dot = L.divIcon({ className: "you-are-here", iconSize: [18, 18] });
+  const label = place.source === "zip" ? `Near ZIP ${place.zip}` : "You are here";
+  L.marker([place.lat, place.lng], { icon: dot }).addTo(hereLayer).bindTooltip(label);
+
+  map.setView([place.lat, place.lng], hereZoom, { animate: false });
+  // Then slide the view down a little so the dot sits above the legend
+  // (bottom left), which covers the middle of the map on a phone screen
+  map.panBy([0, DOT_ABOVE_MIDDLE_PX], { animate: false });
 }
 
 // Markers that never change: the satellite's blind spots and the intake
@@ -168,8 +247,9 @@ function addLegend(L, newestDate) {
   legend.addTo(map);
 }
 
-// Opens an area's card in the list and scrolls to it
-function openAreaCard(id) {
+// Opens an area's card in the list and scrolls to it (also used by the
+// "See what's near you" panel)
+export function openAreaCard(id) {
   const card = document.getElementById(`area-${id}`);
   if (!card) return;
   card.open = true;

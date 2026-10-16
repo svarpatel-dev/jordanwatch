@@ -1,12 +1,21 @@
 // The user's location: the phone's GPS (only asked for when it's needed)
-// and distances between places. The location never leaves the phone.
+// or a ZIP code, distances between places, and remembering the user's
+// choice. The location never leaves the phone.
 //
 // Testing aid: add ?at=LAT,LNG to the page address to pretend to be there,
 // e.g. localhost:8000/?at=35.727,-79.027 (Seaforth).
 
 const EARTH_RADIUS_KM = 6371;
 
-// Ask the phone where it is. Returns { lat, lng }.
+// ZIP code → point files made by scripts/make_zip_points.py, one per first
+// digit (data/zip/2.json holds every ZIP starting with 2)
+const ZIP_FOLDER = "data/zip";
+
+// Where the user's last "See what's near you" choice is saved on this phone
+const STORAGE_KEY = "jordanwatch-place";
+
+// Ask the phone where it is. Returns { lat, lng, accuracyM }
+// (accuracyM = how accurate the location is, in meters).
 export function getLocation() {
   const pretend = new URLSearchParams(window.location.search).get("at");
   if (pretend) {
@@ -22,11 +31,68 @@ export function getLocation() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      position => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      position => resolve({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracyM: position.coords.accuracy
+      }),
       error => reject(new Error(error.message || "location is unavailable")),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   });
+}
+
+// True if the user already allowed this page to use the location, so asking
+// again won't show a pop-up. False if not, or if the browser can't tell.
+export async function locationAllowed() {
+  try {
+    const permission = await navigator.permissions.query({ name: "geolocation" });
+    return permission.state === "granted";
+  } catch (error) {
+    return false;
+  }
+}
+
+// The middle of a ZIP code's area, e.g. "27519" → { lat: 35.808, lng: -78.887 }.
+// Returns null if the ZIP isn't in the Census list (e.g. PO-box-only ZIPs).
+export async function findZip(zip) {
+  const response = await fetch(`${ZIP_FOLDER}/${zip[0]}.json`);
+  if (!response.ok) {
+    throw new Error(`ZIP list request failed (HTTP ${response.status})`);
+  }
+
+  const points = await response.json();
+  const point = points[zip];
+  if (!point) return null;
+  return { lat: point[0], lng: point[1] };
+}
+
+// Remember the user's choice on this phone: { source: "zip", zip: "27519" }
+// or { source: "gps" } (GPS coordinates are never saved; the phone is asked again)
+export function savePlaceChoice(choice) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(choice));
+  } catch (error) {
+    // Storage blocked (e.g. some private modes): it just isn't remembered
+    console.error("Couldn't save the location choice on this phone", error);
+  }
+}
+
+// The saved choice, or null if there's none
+export function savedPlaceChoice() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY));
+  } catch (error) {
+    return null;
+  }
+}
+
+export function forgetPlaceChoice() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    // storage blocked: nothing was saved anyway
+  }
 }
 
 // Distance between two { lat, lng } points in km, along the Earth's

@@ -10,6 +10,30 @@
   border-radius: 8px;
 }
 
+/* "See what's near you": a quieter box under the "If exposed" one */
+#near-you {
+  max-width: 720px;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid #c4c4c4;
+  border-radius: 8px;
+}
+
+/* Keep the ZIP box on the same line as the GPS button when there's room */
+#near-zip-form {
+  display: inline-block;
+  margin: 6px 0;
+}
+
+/* The "You are here" dot on the map: a blue circle with a white ring */
+.you-are-here {
+  box-sizing: border-box;
+  background: #1a73e8;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
 /* A Leaflet map needs a set height, or it collapses to nothing */
 #map {
   height: 360px;

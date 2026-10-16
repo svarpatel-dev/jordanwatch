@@ -1,6 +1,7 @@
 // Entry point: connects the other modules.
-// Load the Jordan Lake data and work out each area's verdict → fill the
-// station picker → load the first station → reload whenever the pick changes.
+// Load the Jordan Lake data and work out each area's verdict → bring back the
+// user's saved place ("See what's near you") → fill the station picker →
+// load the first station → reload whenever the pick changes.
 
 import { STATIONS } from "./stations.js";
 import { AREAS } from "./areas.js";
@@ -10,10 +11,12 @@ import { computeRisk } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
-import { showMap } from "./map.js";
+import { showMap, showYouAreHere, clearYouAreHere, openAreaCard } from "./map.js";
 import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
-import { getLocation, nearest } from "./location.js";
+import { getLocation, nearest, findZip, locationAllowed,
+         savePlaceChoice, savedPlaceChoice, forgetPlaceChoice } from "./location.js";
 import { saveScan, todaysScans } from "./scans.js";
+import { showNearYouStatus, showNearestArea, showFarFromLake } from "./nearyou.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showLake, showLakeError, showScanStatus, showScanResult,
          askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
@@ -27,6 +30,10 @@ const HAW_RIVER_STATION_ID = "02096960";
 const picker = document.getElementById("station-picker");
 const scanButton = document.getElementById("scan-start");
 const scanVideo = document.getElementById("scan-video");
+const nearGpsButton = document.getElementById("near-gps");
+const zipForm = document.getElementById("near-zip-form");
+const zipInput = document.getElementById("near-zip");
+const nearClearButton = document.getElementById("near-clear");
 
 // How often the camera scan looks at the view (milliseconds)
 const SCAN_EVERY_MS = 500;
@@ -49,6 +56,16 @@ let dontAskBefore = 0;
 
 // The latest lake data, kept so the verdicts can be redone after a scan
 let lakeData = null;
+// The latest verdicts, kept for the "See what's near you" line
+let latestLake = null;
+
+// "See what's near you": within this distance of a Jordan Lake area (about
+// 15 miles), show that area's verdict; farther away, say how far the lake is
+const NEAR_LAKE_KM = 25;
+
+// The place the user chose: { lat, lng, source: "gps" or "zip", and
+// accuracyM (GPS) or zip (ZIP) }. null until they choose one.
+let chosenPlace = null;
 
 // Jordan Lake: satellite data, runoff, lake level and wind, combined into
 // a verdict for each area.
@@ -86,6 +103,7 @@ function showLakeVerdicts() {
   console.table(lake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
 
   showLake(lake);
+  latestLake = lake;
 
   // The map gets its own try/catch: if the map library fails to load,
   // the list of areas above still works.
@@ -94,6 +112,9 @@ function showLakeVerdicts() {
   } catch (error) {
     console.error("Failed to show the map", error);
   }
+
+  // The nearest area's verdict may have changed (new data or a scan)
+  if (chosenPlace) updateNearYou();
 }
 
 // The latest lake level reading at the dam
@@ -245,7 +266,93 @@ async function answerBloomQuestion(answeredYes, percent) {
   askingAboutBloom = false;
 }
 
+// "Use my location": the phone's GPS, asked for only after a tap
+async function useMyLocation() {
+  showNearYouStatus("Finding your location…");
+  try {
+    const point = await getLocation();
+    choosePlace({ ...point, source: "gps" });
+  } catch (error) {
+    console.error("Couldn't get the location", error);
+    showNearYouStatus(`Couldn't get your location (${error.message}). Try a ZIP code instead.`);
+  }
+}
+
+// "Enter a ZIP code": the middle of that ZIP's area, from the Census list
+async function useZip(zip) {
+  // Exactly 5 digits (like Python's re.fullmatch(r"\d{5}", zip))
+  if (!/^\d{5}$/.test(zip)) {
+    showNearYouStatus("A ZIP code has 5 digits.");
+    return;
+  }
+
+  showNearYouStatus(`Looking up ZIP ${zip}…`);
+  try {
+    const point = await findZip(zip);
+    if (!point) {
+      showNearYouStatus(`Couldn't find ZIP ${zip}. Try a nearby ZIP or use your location.`);
+      return;
+    }
+    choosePlace({ ...point, source: "zip", zip });
+  } catch (error) {
+    console.error("Couldn't look up the ZIP", error);
+    showNearYouStatus(`Couldn't look up ZIP ${zip} right now (${error.message}). Try again in a minute.`);
+  }
+}
+
+// A place was chosen: remember the choice, put the dot on the map and show
+// what's near it
+function choosePlace(place) {
+  chosenPlace = place;
+  savePlaceChoice(place.source === "zip" ? { source: "zip", zip: place.zip } : { source: "gps" });
+  nearClearButton.hidden = false;
+  showYouAreHere(place, nearest(AREAS, place).km <= NEAR_LAKE_KM);
+  updateNearYou();
+}
+
+// The nearest Jordan Lake area and its verdict, or how far away the lake is
+function updateNearYou() {
+  const closest = nearest(AREAS, chosenPlace);
+  if (closest.km <= NEAR_LAKE_KM) {
+    const verdict = latestLake?.areas.find(a => a.id === closest.place.id) ?? null;
+    showNearestArea(chosenPlace, closest.place, closest.km, verdict, openAreaCard);
+  } else {
+    showFarFromLake(chosenPlace, closest.km);
+  }
+}
+
+// "Clear": forget the choice and go back to the Jordan Lake view
+function clearPlace() {
+  chosenPlace = null;
+  forgetPlaceChoice();
+  zipInput.value = "";
+  nearClearButton.hidden = true;
+  showNearYouStatus("");
+  clearYouAreHere();
+}
+
+// When the page opens, bring back the last choice. A ZIP comes back right
+// away; GPS only if the phone already allows it, so there's no surprise
+// pop-up (otherwise it waits for a tap).
+async function restorePlace() {
+  const saved = savedPlaceChoice();
+  if (saved?.source === "zip") {
+    zipInput.value = saved.zip;
+    useZip(saved.zip);
+  } else if (saved?.source === "gps" && await locationAllowed()) {
+    useMyLocation();
+  }
+}
+
 loadLake();
+
+nearGpsButton.addEventListener("click", useMyLocation);
+nearClearButton.addEventListener("click", clearPlace);
+zipForm.addEventListener("submit", event => {
+  event.preventDefault();   // stay on this page instead of sending the form
+  useZip(zipInput.value.trim());
+});
+restorePlace();
 
 // One button: starts the camera when it's off, stops it when it's on
 scanButton.addEventListener("click", () => {
