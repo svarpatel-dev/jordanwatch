@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-10-16T04:32:19+00:00",
+  "updatedAt": "2026-10-16T11:24:59+00:00",
   "points": [
     {
       "id": "north",
@@ -9,15 +9,15 @@
       "lat": 35.81,
       "lng": -78.99,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 570164,
-      "maxCellsPerMl": 691831,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 654636,
+      "maxCellsPerMl": 963829,
       "validPixels": 6,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 636796
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 570164
     },
     {
       "id": "crosswinds",
@@ -26,15 +26,15 @@
       "lat": 35.748,
       "lng": -79.015,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 277971,
-      "maxCellsPerMl": 301995,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 328095,
+      "maxCellsPerMl": 409261,
       "validPixels": 5,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 210863
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 277971
     },
     {
       "id": "parkers-creek",
@@ -43,15 +43,15 @@
       "lat": 35.745,
       "lng": -79.03,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 319154,
-      "maxCellsPerMl": 337287,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 242103,
+      "maxCellsPerMl": 346737,
       "validPixels": 6,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 277971
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 319154
     },
     {
       "id": "white-oak",
@@ -60,15 +60,15 @@
       "lat": 35.742,
       "lng": -79.024,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 199526,
-      "maxCellsPerMl": 242103,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 337287,
+      "maxCellsPerMl": 602560,
       "validPixels": 9,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-10",
-      "previousCellsPerMl": 248886
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 199526
     },
     {
       "id": "intake",
@@ -77,15 +77,15 @@
       "lat": 35.739,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 216770,
-      "maxCellsPerMl": 242103,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 398107,
+      "maxCellsPerMl": 602560,
       "validPixels": 6,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 319154
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 216770
     },
     {
       "id": "seaforth",
@@ -94,15 +94,15 @@
       "lat": 35.727,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 210863,
-      "maxCellsPerMl": 301995,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 183654,
+      "maxCellsPerMl": 444631,
       "validPixels": 5,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 151356
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 210863
     },
     {
       "id": "poplar-point",
@@ -111,15 +111,15 @@
       "lat": 35.722,
       "lng": -79.027,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 366438,
-      "maxCellsPerMl": 366438,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 20701,
+      "maxCellsPerMl": 310456,
       "validPixels": 6,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 205116
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 366438
     },
     {
       "id": "ebenezer-church",
@@ -128,15 +128,15 @@
       "lat": 35.707,
       "lng": -79.032,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 229087,
-      "maxCellsPerMl": 229087,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 409261,
+      "maxCellsPerMl": 409261,
       "validPixels": 4,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 14859
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 229087
     },
     {
       "id": "vista-point",
@@ -145,15 +145,15 @@
       "lat": 35.703,
       "lng": -79.042,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 229087,
-      "maxCellsPerMl": 285759,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 263027,
+      "maxCellsPerMl": 328095,
       "validPixels": 6,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 135519
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 229087
     },
     {
       "id": "new-hope-overlook",
@@ -162,15 +162,15 @@
       "lat": 35.697,
       "lng": -79.038,
       "status": "ok",
-      "imageDate": "2026-10-14",
-      "newestImageDate": "2026-10-14",
-      "cellsPerMl": 270396,
-      "maxCellsPerMl": 328095,
+      "imageDate": "2026-10-15",
+      "newestImageDate": "2026-10-15",
+      "cellsPerMl": 285759,
+      "maxCellsPerMl": 510505,
       "validPixels": 8,
       "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-12",
-      "previousCellsPerMl": 111686
+      "previousDate": "2026-10-14",
+      "previousCellsPerMl": 270396
     }
   ]
 }
