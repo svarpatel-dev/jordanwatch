@@ -39,13 +39,13 @@ export function showNearestArea(place, area, km, verdict, onOpenArea) {
   document.getElementById("near-open-card").addEventListener("click", () => onOpenArea(area.id));
 }
 
-// Farther away: how far Jordan Lake is, and what the map still shows
+// Farther away: how far Jordan Lake is (the lakes near the place are listed
+// under it, by lakecard.js)
 export function showFarFromLake(place, km) {
   const who = place.source === "zip" ? `ZIP ${place.zip} is` : "You're";
   document.getElementById("near-result").innerHTML = `
     <p>${describePlace(place)}</p>
-    <p>${who} about ${describeDistance(km)} from Jordan Lake. Full verdicts cover Jordan Lake
-      for now; the satellite map shows lakes near you.</p>
+    <p>${who} about ${describeDistance(km)} from Jordan Lake.</p>
   `;
 }
 
@@ -66,8 +66,8 @@ function verdictName(verdict) {
   return `${VERDICT_NAMES[verdict.level]}${severity}`;
 }
 
-// "1.4 miles" up close, "330 miles" farther away
-function describeDistance(km) {
+// "1.4 miles" up close, "330 miles" farther away (also used by lakecard.js)
+export function describeDistance(km) {
   const miles = km * MILES_PER_KM;
   return miles < 10 ? `${miles.toFixed(1)} miles` : `${Math.round(miles).toLocaleString()} miles`;
 }

@@ -2,7 +2,7 @@
 // markers where the satellite can't see, and the drinking-water intake.
 // Uses Leaflet (loaded in index.html) with OpenStreetMap map tiles.
 
-const PIN_COLORS = {
+export const PIN_COLORS = {
   avoid: "#d93025",   // red
   caution: "#e8a200", // amber
   low: "#1e8e3e"      // green
@@ -11,7 +11,7 @@ const PIN_COLORS = {
 // Avoid pins get darker as the satellite reading gets worse (decided Oct 13),
 // in the same colors as the satellite legend below. An Avoid with no severity
 // (raised by wind or a camera scan) keeps the plain red.
-const AVOID_SEVERITY_COLORS = {
+export const AVOID_SEVERITY_COLORS = {
   high: "#f03b20",
   "very-high": "#bd0026",
   extreme: "#54278f"
@@ -42,8 +42,9 @@ const NO_COVERAGE = [
 const INTAKE = { lat: 35.7385, lng: -79.0222 };
 
 // The nationwide satellite severity layer (decided Oct 12-13): tiles made by
-// scripts/make_tiles.py on every deploy, showing each spot's newest satellite
-// reading from the past week. The legend uses the same colors and levels.
+// scripts/make_tiles.py on every deploy, showing each spot's newest bloom
+// detection from the past week (clean water and clouds have no color; bug 13,
+// Oct 16). The legend uses the same colors and levels.
 const SATELLITE_TILES = "tiles/{z}/{x}/{y}.png";
 const SATELLITE_INFO = "tiles/info.json";
 const SEVERITY_LEGEND = [
@@ -226,7 +227,7 @@ async function addSatelliteLayer(L) {
     attribution: "Satellite: EPA CyAN"
   }).addTo(map);
 
-  L.control.layers(null, { "Satellite: newest readings": satellite }, { collapsed: false }).addTo(map);
+  L.control.layers(null, { "Satellite: newest bloom detections": satellite }, { collapsed: false }).addTo(map);
   addLegend(L, info.newestDate ?? info.weeklyDate);
 }
 
@@ -240,11 +241,17 @@ function addLegend(L, newestDate) {
     box.innerHTML = `
       <strong>Satellite: cells/mL</strong><br>
       ${rows}<br>
-      <small>EPA CyAN estimate: each spot's newest<br>reading from the week up to ${newestDate}.<br>WHO 1999/2003 levels.</small>
+      <small>EPA CyAN estimate: newest bloom seen<br>up to ${newestDate}. No color: clean water,<br>clouds or no pass. WHO 1999/2003 levels.</small>
     `;
     return box;
   };
   legend.addTo(map);
+}
+
+// The Leaflet map, or null until showMap builds it (lakemap.js puts the
+// nationwide lake pins on it)
+export function getMap() {
+  return map;
 }
 
 // Opens an area's card in the list and scrolls to it (also used by the

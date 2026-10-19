@@ -14,11 +14,11 @@ Two passes (decided Oct 16):
    pixel counts for one lake over the last 14 days, which tell clean water
    (below detection) apart from clouds. The only source of Low Risk, and it
    also covers the southern lakes the image misses. Each run checks as many
-   lakes as fit in its time budget: about once a day per lake when EPA is
-   fast (2-3 s per lake), every 1-2 weeks when it's slow (10-15 s, seen Oct
-   16). Lakes likely to be clean go first (decided Oct 18). If EPA errors or
-   slows down, the next runs check fewer lakes and wait between requests
-   (the "pace" in readings.json).
+   lakes as fit in its time budget (about 5 hours, 4 runs a day): about once
+   a day per lake when EPA is fast (2-3 s per lake), about every 2 days
+   when it's slow (about 20 s, seen Oct 18). Lakes likely to be clean go
+   first (decided Oct 18). If EPA errors or slows down, the next runs check
+   fewer lakes and wait between requests (the "pace" in readings.json).
 
 Files:
   data/lakes/index.json     every lake: id, name, state, middle, size in km2,
@@ -62,7 +62,7 @@ KEEP_WARNING_DAYS = 30   # forget image warnings older than this (the app stops 
 # Per-lake check
 CHECK_WINDOW_DAYS = 14
 RUNS_PER_DAY = 4
-BUDGET_MINUTES = 75          # each run stops checking after this (the job's limit is 120)
+BUDGET_MINUTES = 300         # each run stops checking after this (the job's limit is 330; decided Oct 19)
 RECHECK_AFTER_HOURS = 18
 RECHECK_NO_WATER_DAYS = 30   # lakes where the satellite sees no water pixels at all
 SOUTH_EDGE_LAT = 29.86       # the image has nothing south of this, so these go first

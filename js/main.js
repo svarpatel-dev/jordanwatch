@@ -11,7 +11,11 @@ import { computeRisk } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
-import { showMap, showYouAreHere, clearYouAreHere, openAreaCard } from "./map.js";
+import { showMap, showYouAreHere, clearYouAreHere, openAreaCard, getMap } from "./map.js";
+import { fetchLakes, nearestLakes, JORDAN_LAKE_ID } from "./lakes.js";
+import { showLakePins } from "./lakemap.js";
+import { showLakeCard, clearLakeCard, showNearbyLakes, clearNearbyLakes,
+         showLakesUnavailable } from "./lakecard.js";
 import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
 import { getLocation, nearest, findZip, locationAllowed,
          savePlaceChoice, savedPlaceChoice, forgetPlaceChoice } from "./location.js";
@@ -34,6 +38,16 @@ const nearGpsButton = document.getElementById("near-gps");
 const zipForm = document.getElementById("near-zip-form");
 const zipInput = document.getElementById("near-zip");
 const nearClearButton = document.getElementById("near-clear");
+const mapHeading = document.getElementById("map-heading");
+// Jordan Lake's area list ("Best spots today"), shown only near Jordan Lake
+// or with no place chosen (everything else is national, decided Oct 19)
+const jordanList = document.getElementById("lake");
+
+// The map's heading with no place or lake picked: Jordan Lake, the default
+// example (decided Oct 19)
+const DEFAULT_HEADING = "Jordan Lake";
+// Opening a lake's card zooms the map in at least this far on it
+const LAKE_ZOOM = 9;
 
 // How often the camera scan looks at the view (milliseconds)
 const SCAN_EVERY_MS = 500;
@@ -66,6 +80,13 @@ const NEAR_LAKE_KM = 25;
 // The place the user chose: { lat, lng, source: "gps" or "zip", and
 // accuracyM (GPS) or zip (ZIP) }. null until they choose one.
 let chosenPlace = null;
+
+// Every lake EPA CyAN covers, with its verdict (lakes.js); null until the
+// lake files load. lakesFailed = true if they couldn't be loaded.
+let nationwide = null;
+let lakesFailed = false;
+// How many lakes "See what's near you" lists
+const NEARBY_LAKES = 5;
 
 // Jordan Lake: satellite data, runoff, lake level and wind, combined into
 // a verdict for each area.
@@ -112,9 +133,44 @@ function showLakeVerdicts() {
   } catch (error) {
     console.error("Failed to show the map", error);
   }
+  drawLakePins();
 
   // The nearest area's verdict may have changed (new data or a scan)
   if (chosenPlace) updateNearYou();
+}
+
+// Every covered US lake (decided Oct 16): a pin on the map for each, and
+// the nearest ones in "See what's near you"
+async function loadLakes() {
+  try {
+    nationwide = await fetchLakes();
+  } catch (error) {
+    console.error("Failed to load the lake verdicts", error);
+    lakesFailed = true;
+    if (chosenPlace) showLakesUnavailable();
+    return;
+  }
+  drawLakePins();
+  if (chosenPlace) updateNearYou();
+}
+
+// The lake pins need both the map and the lake files, which load separately,
+// so this runs after each one (the pins are only drawn once)
+function drawLakePins() {
+  const map = getMap();
+  if (map && nationwide) {
+    showLakePins(map, nationwide.lakes, openLakeCard);
+  }
+}
+
+// Show a lake's card, name it in the heading and move the map to it
+function openLakeCard(id) {
+  const lake = nationwide.lakes.find(l => l.id === id);
+  if (!lake) return;
+  showLakeCard(lake, nationwide.updatedAt);
+  mapHeading.textContent = `${lake.name} (${lake.state})`;
+  const map = getMap();
+  if (map) map.setView([lake.lat, lake.lng], Math.max(map.getZoom(), LAKE_ZOOM));
 }
 
 // The latest lake level reading at the dam
@@ -306,11 +362,23 @@ function choosePlace(place) {
   chosenPlace = place;
   savePlaceChoice(place.source === "zip" ? { source: "zip", zip: place.zip } : { source: "gps" });
   nearClearButton.hidden = false;
-  showYouAreHere(place, nearest(AREAS, place).km <= NEAR_LAKE_KM);
+  const nearJordan = nearest(AREAS, place).km <= NEAR_LAKE_KM;
+  showYouAreHere(place, nearJordan);
+
+  // A new place: a lake card from before no longer fits, and the heading
+  // names where the map is now
+  clearLakeCard();
+  jordanList.hidden = !nearJordan;
+  if (nearJordan) {
+    mapHeading.textContent = DEFAULT_HEADING;
+  } else {
+    mapHeading.textContent = place.source === "zip" ? `Lakes near ZIP ${place.zip}` : "Lakes near you";
+  }
   updateNearYou();
 }
 
-// The nearest Jordan Lake area and its verdict, or how far away the lake is
+// The nearest Jordan Lake area and its verdict, or how far away the lake is,
+// plus the nearest other lakes
 function updateNearYou() {
   const closest = nearest(AREAS, chosenPlace);
   if (closest.km <= NEAR_LAKE_KM) {
@@ -318,6 +386,16 @@ function updateNearYou() {
     showNearestArea(chosenPlace, closest.place, closest.km, verdict, openAreaCard);
   } else {
     showFarFromLake(chosenPlace, closest.km);
+  }
+
+  // The nearest other lakes and their satellite verdicts (decided Oct 16).
+  // Near Jordan Lake, its areas are already shown, so it's left out.
+  if (nationwide) {
+    const nearJordan = closest.km <= NEAR_LAKE_KM;
+    const nearby = nearestLakes(nationwide.lakes, chosenPlace, NEARBY_LAKES, nearJordan ? JORDAN_LAKE_ID : null);
+    showNearbyLakes(nearby, nearJordan, openLakeCard);
+  } else if (lakesFailed) {
+    showLakesUnavailable();
   }
 }
 
@@ -328,6 +406,10 @@ function clearPlace() {
   zipInput.value = "";
   nearClearButton.hidden = true;
   showNearYouStatus("");
+  clearNearbyLakes();
+  clearLakeCard();
+  jordanList.hidden = false;
+  mapHeading.textContent = DEFAULT_HEADING;
   clearYouAreHere();
 }
 
@@ -345,6 +427,7 @@ async function restorePlace() {
 }
 
 loadLake();
+loadLakes();
 
 nearGpsButton.addEventListener("click", useMyLocation);
 nearClearButton.addEventListener("click", clearPlace);
