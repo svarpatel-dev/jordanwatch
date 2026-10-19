@@ -7,10 +7,10 @@ on:
   # Every push to main (my code changes)
   push:
     branches: [main]
-  # Every time the satellite bot finishes (its cyan.json commits can't start
-  # this workflow by themselves)
+  # Every time a satellite bot finishes (its commits can't start this
+  # workflow by themselves): Jordan Lake's points and every covered lake
   workflow_run:
-    workflows: ["Fetch CyAN satellite data"]
+    workflows: ["Fetch CyAN satellite data", "Fetch lake satellite data"]
     types: [completed]
   # Adds a "Run workflow" button on GitHub for manual runs
   workflow_dispatch:

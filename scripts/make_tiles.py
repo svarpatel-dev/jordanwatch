@@ -1,10 +1,10 @@
 """
 Make the nationwide satellite map layer for JordanWatch.
 
-Downloads EPA CyAN's newest nationwide cyanobacteria images, recolors them
-with JordanWatch's own severity scale, and cuts them into 256 x 256 map
-tiles (tiles/z/x/y.png) that the map loads as a layer. Runs in GitHub
-Actions on every deploy (deploy.yml).
+Downloads EPA CyAN's newest nationwide cyanobacteria images (cyan_images.py),
+recolors them with JordanWatch's own severity scale, and cuts them into
+256 x 256 map tiles (tiles/z/x/y.png) that the map loads as a layer. Runs in
+GitHub Actions on every deploy (deploy.yml).
 
 Newest data first (decided Oct 13, so the map agrees with the verdict pins):
 every pixel shows its newest satellite reading. The DAILY images from the
@@ -12,12 +12,22 @@ last 7 days are stacked newest first; where a day was cloudy, an older day
 fills in, and the newest WEEKLY image (the past 7 days combined) fills
 whatever is still empty.
 
-Recoloring (decided Oct 12-13): EPA draws each satellite level 1-253 in its
-own color scale. epa_cyan_colors.json maps every EPA color back to its level
-(rebuilt Oct 13 by ordering EPA's 248 colors and checking them against our
-lake points' real readings). Each level is converted to cells/mL with EPA's
-formula, then painted with our scale: Low Risk below 20,000, Caution
-20,000-100,000, Avoid above 100,000 (WHO 1999/2003 levels).
+Each image is used once and dated by its own date (bug 14, fixed Oct 16):
+EPA answers a missing day with an older image, which used to be stacked
+several times and labeled with the day that was asked for.
+
+Old blooms over clean water (bug 13, fixed Oct 16): EPA's image only draws
+detected blooms; clean water is transparent, just like clouds. So an older
+image's bloom could show through where a newer image saw clean water. The
+per-lake check in fetch_lakes.py can tell clean water from clouds: inside a
+lake whose newest check saw most of it and found no bloom at the Caution
+level, every image OLDER than that check is left out. The colors are
+"newest bloom detections": no color means clean, cloudy or not seen.
+
+Recoloring (decided Oct 12-13): each satellite level is converted to
+cells/mL with EPA's formula, then painted with our scale: Low Risk below
+20,000, Caution 20,000-100,000, Avoid above 100,000 (WHO 1999/2003 levels).
+Tiles are small 7-color PNGs.
 
 Fails soft: if no EPA image can be downloaded, it exits without touching the
 tiles, so the deploy reuses the last good tiles.
@@ -25,25 +35,19 @@ tiles, so the deploy reuses the last good tiles.
 Run:  python3 scripts/make_tiles.py tiles      (needs Pillow and NumPy)
 """
 
-import ast
-import io
 import json
 import math
 import sys
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-Image.MAX_IMAGE_PIXELS = None   # EPA's image is 263 million pixels, on purpose
+from cyan_images import CELLS, image_levels, load_outlines, prepare_masks, recent_images
+from fetch_lakes import GOOD_LOOK_SHARE, READINGS_FILE, is_warning
 
-IMAGE_URL = "https://cyan.epa.gov/waterbody/conus_image/?year={year}&day={day}&daily={daily}"
-HEADERS = {"User-Agent": "JordanWatch student project (github.com/svarpatel-dev/jordanwatch)"}
-COLOR_TABLE = Path(__file__).resolve().parent / "epa_cyan_colors.json"
-
-LOOK_BACK_DAYS = 10    # EPA's newest image can be a few days behind
+LOOK_BACK_DAYS = 10    # EPA's newest weekly image can be a few days behind
 DAILY_DAYS = 7         # how many days of daily images to stack
 MIN_ZOOM, MAX_ZOOM = 4, 9
 TILE = 256
@@ -61,89 +65,85 @@ SEVERITY = [
 ]
 
 
-def level_to_cells(level):
-    """EPA's formula: satellite level 1-253 -> cyanobacteria cells/mL."""
-    return 10 ** (0.012 * level - 4.2) * 1e8
-
-
-def severity_color(cells):
-    color = SEVERITY[0][1]
-    for threshold, rgb in SEVERITY:
+def severity_band(cells):
+    """1-6: which row of SEVERITY these cells/mL fall in (0 is kept for "no color")."""
+    band = 1
+    for number, (threshold, _) in enumerate(SEVERITY, start=1):
         if cells >= threshold:
-            color = rgb
-    return color
+            band = number
+    return band
 
 
-def download_image(day, daily):
-    """EPA's daily or weekly image for one day, or None if there isn't one."""
-    kind = "daily" if daily else "weekly"
-    url = IMAGE_URL.format(year=day.year, day=day.timetuple().tm_yday, daily=daily)
+# The band for every satellite level 0-255 (level 0 = nothing drawn = band 0)
+LEVEL_BANDS = np.array([0] + [severity_band(CELLS[level]) for level in range(1, 256)], dtype=np.uint8)
+
+
+def lakes_seen_clean():
+    """Lakes whose newest per-lake check (fetch_lakes.py) had a good look
+    (half the lake or more) and found no bloom at the Caution level:
+    {lake id: date of that check's satellite day}."""
     try:
-        request = urllib.request.Request(url, headers=HEADERS)
-        with urllib.request.urlopen(request, timeout=300) as response:
-            data = response.read()
-    except Exception as error:
-        print(f"{day} {kind}: download failed ({error})")
-        return None
-    # A missing day comes back as a short JSON message, not a PNG
-    if data[:8] != b"\x89PNG\r\n\x1a\n":
-        print(f"{day} {kind}: no image")
-        return None
-    print(f"{day} {kind}: got it ({len(data) // 1_000_000} MB)")
-    return Image.open(io.BytesIO(data))
+        readings = json.loads(READINGS_FILE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    clean = {}
+    for lake_id, entry in readings["lakes"].items():
+        if "c" not in entry:
+            continue
+        check = dict(zip(readings["checkFields"], entry["c"]))
+        if check["date"] is None:
+            continue
+        good_look = check["seen"] >= GOOD_LOOK_SHARE * check["lakePixels"]
+        if good_look and not is_warning(check, check["seen"]):
+            clean[int(lake_id)] = check["date"]
+    return clean
 
 
-def download_dailies():
-    """Daily images from the last 7 days, newest first: [(day, image), ...]."""
-    today = datetime.now(timezone.utc).date()
-    found = []
-    for back in range(DAILY_DAYS):
-        day = today - timedelta(days=back)
-        image = download_image(day, daily=True)
-        if image is not None:
-            found.append((day, image))
-    return found
+def stack_newest_first(images):
+    """One grid of satellite levels: each pixel from the newest image that
+    drew it, minus old blooms over lakes seen clean since (bug 13).
+    Returns (levels, grid, how many lakes were cleaned up)."""
+    clean = lakes_seen_clean()
+    clean_lakes = []
+    if clean:
+        try:
+            clean_lakes = [lake for lake in load_outlines() if lake["id"] in clean]
+        except Exception as error:
+            print(f"Lake outlines FAILED ({error}); old blooms over clean lakes stay on the map")
+
+    stacked, grid, masks = None, None, None
+    cleaned = set()
+    for im in images:
+        levels, grid = image_levels(im["image"])
+        im["image"].close()
+        if masks is None:
+            masks = prepare_masks(clean_lakes, grid)
+
+        # Bug 13: this image is older than the clean check, so its blooms in that lake are out of date
+        for lake, box in zip(clean_lakes, masks):
+            if box and clean[lake["id"]] > im["date"].isoformat():
+                top, bottom, left, right, mask = box
+                inside = levels[top:bottom, left:right]
+                if inside[mask].any():
+                    inside[mask] = 0
+                    cleaned.add(lake["id"])
+
+        if stacked is None:
+            stacked = levels
+        else:
+            empty = stacked == 0
+            stacked[empty] = levels[empty]
+            del empty
+        del levels
+    return stacked, grid, len(cleaned)
 
 
-def download_newest_weekly():
-    """The newest weekly image from the last 10 days: (day, image) or (None, None)."""
-    today = datetime.now(timezone.utc).date()
-    for back in range(LOOK_BACK_DAYS + 1):
-        day = today - timedelta(days=back)
-        image = download_image(day, daily=False)
-        if image is not None:
-            return day, image
-    return None, None
-
-
-def newest_first(images):
-    """Stack images (newest first) into one: each pixel comes from the first
-    image that saw it. Transparent = no data there (clouds, land, no pass)."""
-    pixels = np.asarray(images[0].convert("RGBA")).copy()
-    for older in images[1:]:
-        older_pixels = np.asarray(older.convert("RGBA"))
-        empty = pixels[..., 3] == 0
-        pixels[empty] = older_pixels[empty]
-    return pixels
-
-
-def recolor(pixels):
-    """EPA colors -> our severity colors (transparent stays transparent)."""
-    table = json.loads(COLOR_TABLE.read_text())
-    epa_colors = np.array([[int(h[i:i + 2], 16) for i in (1, 3, 5)] for h in table])
-    our_colors = np.array([severity_color(level_to_cells(level)) for level in table.values()])
-
-    seen = pixels[..., 3] > 0
-    rgb = pixels[seen][:, :3].astype(int)
-
-    # Every distinct color in the image, matched to the closest EPA table color
-    # (exact match almost always; closest one if EPA ever adds a new shade)
-    unique, which = np.unique(rgb, axis=0, return_inverse=True)
-    distance = ((unique[:, None, :] - epa_colors[None, :, :]) ** 2).sum(axis=2)
-    closest = distance.argmin(axis=1)
-
-    pixels[seen, :3] = our_colors[closest][which.ravel()]
-    return Image.fromarray(pixels)
+def to_tiles_image(levels):
+    """Levels -> a 7-color image in our severity colors (color 0 = transparent)."""
+    image = Image.fromarray(LEVEL_BANDS[levels])
+    palette = [0, 0, 0] + [value for _, rgb in SEVERITY for value in rgb]
+    image.putpalette(palette)
+    return image
 
 
 def mercator_y(lat):
@@ -190,7 +190,7 @@ def cut_tiles(image, bounds, out_dir):
                     continue
                 path = out_dir / str(z) / str(x) / f"{y}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
-                tile.save(path, optimize=True)
+                tile.save(path, optimize=True, transparency=0)
                 written += 1
     return written
 
@@ -198,17 +198,16 @@ def cut_tiles(image, bounds, out_dir):
 def main():
     out_dir = Path(sys.argv[1] if len(sys.argv) > 1 else "tiles")
 
-    dailies = download_dailies()
-    weekly_day, weekly = download_newest_weekly()
-    images = [image for _, image in dailies] + ([weekly] if weekly is not None else [])
+    today = datetime.now(timezone.utc).date()
+    images = recent_images(today, DAILY_DAYS, LOOK_BACK_DAYS)
     if not images:
         # Fail soft: keep whatever tiles are already there
         print("No EPA image found; keeping the previous tiles")
         return
 
-    # All of EPA's images cover the same area with the same pixel grid
-    bounds = ast.literal_eval(images[0].info["Bounds"])
-    recolored = recolor(newest_first(images))
+    levels, grid, cleaned = stack_newest_first(images)
+    image = to_tiles_image(levels)
+    del levels
 
     # Start fresh so old tiles from an earlier week never linger
     if out_dir.exists():
@@ -216,14 +215,21 @@ def main():
             old.unlink() if old.is_file() else old.rmdir()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    written = cut_tiles(recolored, bounds, out_dir)
-    info = {"newestDate": dailies[0][0].isoformat() if dailies else None,
-            "dailyDates": [day.isoformat() for day, _ in dailies],
-            "weeklyDate": weekly_day.isoformat() if weekly_day else None,
+    written = cut_tiles(image, grid["bounds"], out_dir)
+
+    # The images' own dates (bug 14). A weekly image covers its first day + 6.
+    dailies = [im["date"] for im in images if im["kind"] == "daily"]
+    weekly = next((im["date"] for im in images if im["kind"] == "weekly"), None)
+    newest = min(max(dailies + ([weekly + timedelta(days=6)] if weekly else [])), today)
+    info = {"newestDate": newest.isoformat(),
+            "dailyDates": [day.isoformat() for day in dailies],
+            "weeklyDate": weekly.isoformat() if weekly else None,
+            "cleanLakesMasked": cleaned,
             "source": "EPA CyAN",
             "madeAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     (out_dir / "info.json").write_text(json.dumps(info, indent=2) + "\n")
-    print(f"{written} tiles written to {out_dir}/ ({len(dailies)} daily images, weekly {weekly_day})")
+    print(f"{written} tiles written to {out_dir}/ (daily images {info['dailyDates']}, weekly {info['weeklyDate']}, "
+          f"old blooms removed from {cleaned} lakes seen clean since)")
 
 
 if __name__ == "__main__":
