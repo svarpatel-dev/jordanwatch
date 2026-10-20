@@ -5,7 +5,7 @@
 // How old is a reading, and what should we tell the user?
 // <3h = current, 3-24h = outdated (show with a warning), >24h = stale
 // (too old to trust — no badge should be shown).
-function getStaleness(timestampString) {
+export function getStaleness(timestampString) {
   const readingTime = new Date(timestampString);
   const ageMs = Date.now() - readingTime.getTime();
   const ageHours = ageMs / (1000 * 60 * 60);

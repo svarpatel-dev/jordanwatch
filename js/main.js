@@ -1,7 +1,8 @@
 // Entry point: connects the other modules.
 // Load the Jordan Lake data and work out each area's verdict → bring back the
-// user's saved place ("See what's near you") → fill the station picker →
-// load the first station → reload whenever the pick changes.
+// user's saved place ("See what's near you", plus the live stations near it)
+// → fill the station picker → load the first station → reload whenever the
+// pick changes.
 
 import { STATIONS } from "./stations.js";
 import { AREAS } from "./areas.js";
@@ -21,6 +22,9 @@ import { getLocation, nearest, findZip, locationAllowed,
          savePlaceChoice, savedPlaceChoice, forgetPlaceChoice } from "./location.js";
 import { saveScan, todaysScans } from "./scans.js";
 import { showNearYouStatus, showNearestArea, showFarFromLake } from "./nearyou.js";
+import { findStationsNear, loadStandards, rulesFor, judgeStation } from "./nearby.js";
+import { showStationsNearLoading, showStationsNear, showStationsNearError,
+         clearStationsNear } from "./nearstations.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showLake, showLakeError, showScanStatus, showScanResult,
          askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
@@ -30,6 +34,9 @@ import { fillStationPicker, showLoading, showResult, showError,
 // Haw River, the lake's main inflow (for runoff after storms)
 const DAM_STATION_ID = "02098197";
 const HAW_RIVER_STATION_ID = "02096960";
+
+// The state of the 13 stations in the picker (stations.js)
+const PICKER_STATE = "North Carolina";
 
 const picker = document.getElementById("station-picker");
 const scanButton = document.getElementById("scan-start");
@@ -42,6 +49,8 @@ const mapHeading = document.getElementById("map-heading");
 // Jordan Lake's area list ("Best spots today"), shown only near Jordan Lake
 // or with no place chosen (everything else is national, decided Oct 19)
 const jordanList = document.getElementById("lake");
+// The example station picker, hidden once a place is chosen
+const pickerBox = document.getElementById("station-picker-box");
 
 // The map's heading with no place or lake picked: Jordan Lake, the default
 // example (decided Oct 19)
@@ -227,7 +236,11 @@ async function run(station) {
     if (picker.value !== station.id) return;
 
     const readings = extractAllReadings(data);
-    const risk = computeRisk(readings, station.tier, flowNormal);
+    // Full and partial stations are judged by their state's standards, like
+    // the stations near you (decided Oct 18). All 13 are North Carolina streams.
+    const risk = station.tier === "limited"
+      ? computeRisk(readings, station.tier, flowNormal)
+      : judgeStation(readings, station.tier, rulesFor(await loadStandards(), PICKER_STATE, "ST"));
 
     console.log("Station:", station.name, "| Readings:", readings);
     console.log("Risk result:", risk);
@@ -369,12 +382,14 @@ function choosePlace(place) {
   // names where the map is now
   clearLakeCard();
   jordanList.hidden = !nearJordan;
+  pickerBox.hidden = true;
   if (nearJordan) {
     mapHeading.textContent = DEFAULT_HEADING;
   } else {
     mapHeading.textContent = place.source === "zip" ? `Lakes near ZIP ${place.zip}` : "Lakes near you";
   }
   updateNearYou();
+  loadStationsNear(place);
 }
 
 // The nearest Jordan Lake area and its verdict, or how far away the lake is,
@@ -399,6 +414,22 @@ function updateNearYou() {
   }
 }
 
+// Every live USGS station near the place, each compared with its own
+// state's standards (2 USGS requests; nearby.js remembers the answer)
+async function loadStationsNear(place) {
+  showStationsNearLoading();
+  try {
+    const result = await findStationsNear(place);
+    // The user chose another place (or Clear) while this one was loading
+    if (chosenPlace !== place) return;
+    showStationsNear(result, place);
+  } catch (error) {
+    if (chosenPlace !== place) return;
+    console.error("Failed to load the stations near", place, error);
+    showStationsNearError(error.message);
+  }
+}
+
 // "Clear": forget the choice and go back to the Jordan Lake view
 function clearPlace() {
   chosenPlace = null;
@@ -408,7 +439,9 @@ function clearPlace() {
   showNearYouStatus("");
   clearNearbyLakes();
   clearLakeCard();
+  clearStationsNear();
   jordanList.hidden = false;
+  pickerBox.hidden = false;
   mapHeading.textContent = DEFAULT_HEADING;
   clearYouAreHere();
 }

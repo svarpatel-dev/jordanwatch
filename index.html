@@ -43,7 +43,7 @@
       <button type="submit">Show</button>
     </form>
     <button id="near-clear" type="button" hidden>Clear</button>
-    <br><small>Your location stays on this phone.</small>
+    <br><small>Your exact location stays on this phone.</small>
     <div id="near-result"></div>
     <div id="near-lakes"></div>
   </section>
@@ -62,10 +62,19 @@
   <div id="scan-confirm"></div>
 
   <h2>Stations</h2>
-  <label for="station-picker">Station:</label>
-  <select id="station-picker"></select>
+  <!-- Live stations near the place chosen in "See what's near you" (drawn by
+       nearstations.js); empty until a place is chosen -->
+  <div id="near-stations"></div>
 
-  <p id="status">Nothing happening yet.</p>
+  <!-- With no place chosen: example stations around Jordan Lake and in North
+       Carolina (stations.js). Hidden once a place is chosen (decided Oct 19:
+       everything national, Jordan Lake as the default example). -->
+  <div id="station-picker-box">
+    <p><small>Example stations in North Carolina. Choose a place above to see the live stations near it.</small></p>
+    <label for="station-picker">Station:</label>
+    <select id="station-picker"></select>
+    <p id="status">Nothing happening yet.</p>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

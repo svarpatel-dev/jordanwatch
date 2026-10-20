@@ -19,6 +19,18 @@ const API_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous
 // "observationNormals" = what's typical for each date, from past years
 const NORMALS_URL = "https://api.waterdata.usgs.gov/statistics/v0/observationNormals";
 
+// "latest-continuous" = only the newest reading of each sensor. With a box
+// (bbox) it covers every station inside it in one request (tested Oct 8).
+const LATEST_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items";
+
+// "monitoring-locations" = each station's name, state and site type
+const LOCATIONS_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items";
+
+// Many small lakes report their level above a newer sea-level datum (NAVD
+// 1988, code 62615) instead of 62614. Only used for stations near the user:
+// Jordan Lake's dam keeps 62614, the datum its 216 ft normal pool is in.
+const LAKE_LEVEL_NAVD88 = "62615";
+
 // USGS's old "no data" marker; kept as a safety check (bug 2)
 const NO_DATA = -999999;
 
@@ -91,6 +103,63 @@ export async function fetchFlowPercentiles(stationId) {
     }
   }
   return null;
+}
+
+// The newest readings of every station inside a box ([west, south, east,
+// north] in degrees), in one request. USGS leaves out sensors with nothing
+// in the last 7 days (time=P7D), so long-dead gauges don't show up.
+// Returns [{ id: "USGS-02096960", lat, lng, readings }], with the same
+// readings as extractAllReadings.
+export async function fetchLatestInBox(box) {
+  const query = new URLSearchParams({
+    f: "json",
+    bbox: box.join(","),
+    parameter_code: [...Object.keys(PARAMS), LAKE_LEVEL_NAVD88].join(","),
+    time: "P7D",
+    limit: "10000"   // one row per sensor: far more than any box near a place holds
+  });
+  const data = await fetchUsgs(`${LATEST_URL}?${query}`);
+
+  // Group the rows by station, like a Python dict of lists:
+  // { "USGS-02096960": [row, row, ...], ... }
+  const rowsByStation = {};
+  for (const feature of data.features ?? []) {
+    if (!feature.geometry) continue;   // no location, so it can't be placed
+    const id = feature.properties.monitoring_location_id;
+    rowsByStation[id] = rowsByStation[id] ?? [];
+    rowsByStation[id].push(feature);
+  }
+
+  return Object.entries(rowsByStation).map(([id, features]) => {
+    const readings = extractAllReadings({ features });
+    // A lake that only reports the newer datum still gets a lake level
+    if (!readings.lakeLevelFt) {
+      readings.lakeLevelFt = findReading(features, LAKE_LEVEL_NAVD88);
+    }
+    // GeoJSON points are [longitude, latitude]: longitude comes first
+    const [lng, lat] = features[0].geometry.coordinates;
+    return { id, lat, lng, readings };
+  });
+}
+
+// The name, state and site type ("ST" stream, "LK" lake, ...) of each
+// station in a list of ids, in one request.
+// Returns { "USGS-02096960": { name, state, siteType }, ... }
+export async function fetchStationInfo(ids) {
+  const query = new URLSearchParams({
+    f: "json",
+    id: ids.join(","),
+    properties: "monitoring_location_name,state_name,site_type_code",
+    limit: "10000"
+  });
+  const data = await fetchUsgs(`${LOCATIONS_URL}?${query}`);
+
+  const info = {};
+  for (const feature of data.features ?? []) {
+    const p = feature.properties;
+    info[feature.id] = { name: p.monitoring_location_name, state: p.state_name, siteType: p.site_type_code };
+  }
+  return info;
 }
 
 // Every USGS request goes through here: one retry on temporary errors,
