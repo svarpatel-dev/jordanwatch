@@ -34,14 +34,16 @@ const HIGH_WATER_FT = 220;
 
 // Runoff after storms: heavy rain at the dam (0.5 in within 48 hours) or
 // the Haw River running above its 90th percentile for this date
-const HEAVY_RAIN_IN = 0.5;
+export const HEAVY_RAIN_IN = 0.5;
 
 // Wind piles floating scum onto a shore when it's light (0.5–3 m/s) and
 // blowing toward that shore (within 45° of it). Below 0.5 m/s the
-// direction is too random to mean anything.
-const CALM_MS = 0.5;
-const SCUM_WIND_MAX_MS = 3;
-const ONSHORE_WINDOW_DEG = 45;
+// direction is too random to mean anything. Exported (with the rain level
+// above and the helpers at the end) so every other lake uses the same
+// numbers (lakesignals.js, decided Oct 13).
+export const CALM_MS = 0.5;
+export const SCUM_WIND_MAX_MS = 3;
+export const ONSHORE_WINDOW_DEG = 45;
 
 // scans = today's camera scans the user confirmed as a possible bloom
 // (scans.js); empty if there are none
@@ -351,26 +353,26 @@ function compareAreas(a, b) {
 }
 
 // The worst of a list of levels, e.g. ["low", "avoid"] → "avoid"
-function worstLevel(levels) {
+export function worstLevel(levels) {
   const positions = levels.map(l => LEVELS.indexOf(l));
   return LEVELS[Math.max(...positions)];
 }
 
 // "low" → "caution" → "avoid" (already "avoid" stays "avoid")
-function raiseOneLevel(level) {
+export function raiseOneLevel(level) {
   const position = Math.min(LEVELS.indexOf(level) + 1, LEVELS.length - 1);
   return LEVELS[position];
 }
 
 // The smaller angle between two compass directions, 0–180°.
 // e.g. 350° and 10° are 20° apart, not 340°.
-function angleBetween(a, b) {
+export function angleBetween(a, b) {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
 }
 
 // 0° → "north", 90° → "east", 225° → "southwest"
-function compassName(degrees) {
+export function compassName(degrees) {
   const names = ["north", "northeast", "east", "southeast",
                  "south", "southwest", "west", "northwest"];
   return names[Math.round(degrees / 45) % 8];

@@ -15,6 +15,12 @@ import { distanceKm } from "./location.js";
 const INDEX_FILE = "data/lakes/index.json";
 const READINGS_FILE = "data/lakes/readings.json";
 
+// EPA names that don't match what people call the lake (decided Oct 20): a
+// data correction by lake id, like fixing a typo in the source
+const NAME_FIXES = {
+  2300042: "Falls Lake"   // EPA: "Brinkley Lake"
+};
+
 // Jordan Lake shows its 10 areas (lake.js) instead of one whole-lake pin
 export const JORDAN_LAKE_ID = 2764219;
 
@@ -46,8 +52,9 @@ const IMAGE_MAX_DAYS = 14;
 // Fewer than FEW_PIXELS: the card says it's a rough reading.
 const MIN_LAKE_PIXELS = 3;
 const FEW_PIXELS = 10;
-// Lakes this big (km²) can be very different from one part to another
-const LARGE_LAKE_KM2 = 100;
+// Lakes this big (km²) can be very different from one part to another, and
+// can cross state lines (lakecard.js)
+export const LARGE_LAKE_KM2 = 100;
 const SQ_MILES_PER_KM2 = 0.386102;
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -61,6 +68,7 @@ export async function fetchLakes() {
 
   const lakes = index.lakes.map(row => {
     const lake = toObject(index.fields, row);
+    lake.name = NAME_FIXES[lake.id] ?? lake.name;
     lake.shore = lake.shore ?? null;    // only big lakes have shore points
     const saved = readings.lakes[lake.id] ?? {};
     lake.image = saved.i ? withAge(toObject(readings.imageFields, saved.i)) : null;
@@ -264,12 +272,24 @@ export function nearestLakes(lakes, point, count, skipId = null) {
 // To the lake's middle, or for a big lake to the nearest point along its
 // shore (Lake Michigan's middle is 150 miles from Chicago)
 function lakeDistanceKm(lake, point) {
-  let km = distanceKm(point, lake);
+  return distanceKm(point, closestPointOfLake(lake, point));
+}
+
+// The lake's middle, or for a big lake whichever of its shore points is
+// closer to `point` (also used for a lake card's nearby stations and GPS spot)
+export function closestPointOfLake(lake, point) {
+  let best = { lat: lake.lat, lng: lake.lng };
+  let bestKm = distanceKm(point, best);
   const shore = lake.shore ?? [];
   for (let i = 0; i < shore.length; i += 2) {
-    km = Math.min(km, distanceKm(point, { lat: shore[i], lng: shore[i + 1] }));
+    const candidate = { lat: shore[i], lng: shore[i + 1] };
+    const km = distanceKm(point, candidate);
+    if (km < bestKm) {
+      best = candidate;
+      bestKm = km;
+    }
   }
-  return km;
+  return best;
 }
 
 // --- Helpers ---

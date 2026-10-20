@@ -22,6 +22,8 @@ const IMAGE_SOUTH_EDGE_LAT = 29.86;
 
 // The map the pins are on, so they're only drawn once
 let drawnOn = null;
+// Each lake's pin by lake id, so one pin can be redrawn (updateLakePin)
+const pinsById = new Map();
 
 // onOpenLake(id) runs when a pin is tapped
 export function showLakePins(map, lakes, onOpenLake) {
@@ -45,6 +47,7 @@ export function showLakePins(map, lakes, onOpenLake) {
     pin.bindTooltip(`${escapeHtml(lake.name)} (${lake.state}): ${verdictLabel(lake.verdict)}`);
     pin.on("click", () => onOpenLake(lake.id));
     pins.push(pin);
+    pinsById.set(lake.id, pin);
   }
   L.layerGroup(pins).addTo(map);
 
@@ -57,6 +60,15 @@ export function showLakePins(map, lakes, onOpenLake) {
   });
 
   addSouthNote(L, map);
+}
+
+// After a lake card adds rain, river flow and lake level to the satellite
+// verdict (decided Oct 13), its pin shows the same verdict as the card
+export function updateLakePin(lake) {
+  const pin = pinsById.get(lake.id);
+  if (!pin || !drawnOn) return;
+  pin.setStyle(pinStyle(lake.verdict, pinSize(drawnOn.getZoom())));
+  pin.setTooltipContent(`${escapeHtml(lake.name)} (${lake.state}): ${verdictLabel(lake.verdict)}`);
 }
 
 // Verdict colors like the Jordan Lake pins (darker reds for worse Avoid).

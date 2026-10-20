@@ -83,22 +83,31 @@ export function clearStationsNear() {
 // result = { stations, miles } from nearby.js; place = the chosen place
 export function showStationsNear(result, place) {
   const where = place.source === "zip" ? `ZIP ${place.zip}` : "your location";
+  box().innerHTML = stationsHtml("Live stations near you", result, where);
+}
+
+// The same list inside a lake card, for the stations near the lake (decided
+// Oct 13: every lake card offers them). lakeName must already be safe HTML.
+export function showStationsNearLake(element, result, lakeName) {
+  element.innerHTML = stationsHtml(`Live stations near ${lakeName}`, result, lakeName);
+}
+
+function stationsHtml(heading, result, where) {
   const { stations, miles } = result;
 
   if (stations.length === 0) {
-    box().innerHTML = `
-      <h3>Live stations near you</h3>
+    return `
+      <h3>${heading}</h3>
       <p>No live water stations within about ${miles} miles of ${where}.</p>
     `;
-    return;
   }
 
   const quality = stations.filter(s => s.tier !== "limited");
   const flowOnly = stations.filter(s => s.tier === "limited");
   const count = stations.length === 1 ? "1 live USGS station" : `${stations.length} live USGS stations`;
 
-  box().innerHTML = `
-    <h3>Live stations near you</h3>
+  return `
+    <h3>${heading}</h3>
     <p>${count} within about ${miles} miles of ${where}, nearest first.
       Tap a station to see its readings.</p>
     ${stationGroup("Water quality", quality)}
@@ -263,8 +272,9 @@ const SMALL_WORDS = ["At", "Nr", "Ab", "Bl", "Of", "On", "In", "To", "By", "No"]
 // Most USGS names are in capitals ("ROCKY RIVER AT US 64 NR SILER CITY, NC").
 // Easier to read: "Rocky River At US 64 Nr Siler City, NC". Road names and
 // the state code at the end (with or without a comma) stay in capitals.
-// Names already in mixed case are left as they are.
-function readableName(name) {
+// Names already in mixed case are left as they are. (Also used for the
+// gauges on lake cards.)
+export function readableName(name) {
   if (name !== name.toUpperCase()) return name;
   let words = name.toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase());
   // A two-letter word right before a number: "Us 64" → "US 64", "Sr1100" → "SR1100"

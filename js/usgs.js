@@ -162,6 +162,78 @@ export async function fetchStationInfo(ids) {
   return info;
 }
 
+// Every reading of some parameters at a few stations over the last `hours`
+// hours, in one request (a lake card's rain, river and lake-level gauges,
+// decided Oct 13). Returns { "02098197": { "62614": [{ value, time }, ...] } },
+// oldest first, without values that aren't real numbers (bug 2).
+export async function fetchRecentReadings(stationIds, parameterCodes, hours) {
+  const query = new URLSearchParams({
+    f: "json",
+    monitoring_location_id: stationIds.map(id => `USGS-${id}`).join(","),
+    parameter_code: parameterCodes.join(","),
+    time: `PT${hours}H`,
+    properties: "monitoring_location_id,parameter_code,time,value",
+    skipGeometry: "true",   // the lake card already knows where its gauges are
+    limit: "10000"
+  });
+  const data = await fetchUsgs(`${API_URL}?${query}`);
+
+  // Group by station, then by parameter, like a Python dict of dicts of lists
+  const byStation = {};
+  for (const feature of data.features ?? []) {
+    const p = feature.properties;
+    const value = parseFloat(p.value);
+    if (Number.isNaN(value) || value === NO_DATA) continue;
+    const id = p.monitoring_location_id.replace("USGS-", "");
+    byStation[id] = byStation[id] ?? {};
+    byStation[id][p.parameter_code] = byStation[id][p.parameter_code] ?? [];
+    byStation[id][p.parameter_code].push({ value, time: p.time });
+  }
+  // Oldest first (ISO times sort correctly as text)
+  for (const codes of Object.values(byStation)) {
+    for (const readings of Object.values(codes)) {
+      readings.sort((a, b) => (a.time < b.time ? -1 : 1));
+    }
+  }
+  return byStation;
+}
+
+// Today's usual range of EVERY parameter a station has normals for, from
+// past years' daily averages: { "62614": { p10, p25, p50, p75, p90 },
+// "00060": { ... } }. Like fetchFlowPercentiles, but without picking a
+// parameter, so a lake gauge's best level parameter can be chosen after.
+// USGS's normals take one station per request.
+export async function fetchDailyPercentiles(stationId) {
+  const today = new Date();
+  const monthDay = String(today.getMonth() + 1).padStart(2, "0") + "-"
+                 + String(today.getDate()).padStart(2, "0");
+  const query = new URLSearchParams({
+    monitoring_location_id: `USGS-${stationId}`,
+    normal_type: "DOY",
+    start_date: monthDay,
+    end_date: monthDay
+  });
+  const data = await fetchUsgs(`${NORMALS_URL}?${query}`);
+
+  const byParameter = {};
+  for (const feature of data.features ?? []) {
+    for (const series of feature.properties.data ?? []) {
+      // Percentiles of the daily mean (statistic code 00003) only
+      if (series.parent_statistic_id !== "00003") continue;
+      const record = series.values.find(v => v.computation === "percentile");
+      if (!record) continue;
+      const percentiles = {};
+      record.percentiles.forEach((p, i) => {
+        // "nan" (not enough years for that percentile) is left out
+        const value = parseFloat(record.values[i]);
+        if (!Number.isNaN(value)) percentiles[`p${p}`] = value;
+      });
+      byParameter[series.parameter_code] = percentiles;
+    }
+  }
+  return byParameter;
+}
+
 // Every USGS request goes through here: one retry on temporary errors,
 // and a clear error for anything else.
 async function fetchUsgs(url) {

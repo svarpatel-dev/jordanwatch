@@ -13,25 +13,35 @@ on:
 permissions:
   contents: write
 
+# One run at a time: if GitHub starts two at once (delayed schedules can
+# bunch up), the second waits instead of both pushing (failed run, Oct 20)
+concurrency:
+  group: fetch-cyan
+  cancel-in-progress: false
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Fetch the latest satellite data
         run: python scripts/fetch_cyan.py
 
+      # The lake bot may have committed since this run started, so get its
+      # commit first (git pull --rebase), then push
       - name: Commit cyan.json if it changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add cyan.json
-          git diff --cached --quiet || git commit -m "Update CyAN satellite data"
+          git diff --cached --quiet && exit 0
+          git commit -m "Update CyAN satellite data"
+          git pull --rebase
           git push

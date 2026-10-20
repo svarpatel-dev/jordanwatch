@@ -13,10 +13,12 @@ import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
 import { showMap, showYouAreHere, clearYouAreHere, openAreaCard, getMap } from "./map.js";
-import { fetchLakes, nearestLakes, JORDAN_LAKE_ID } from "./lakes.js";
-import { showLakePins } from "./lakemap.js";
+import { fetchLakes, nearestLakes, lakeVerdict, closestPointOfLake, JORDAN_LAKE_ID } from "./lakes.js";
+import { showLakePins, updateLakePin } from "./lakemap.js";
 import { showLakeCard, clearLakeCard, showNearbyLakes, clearNearbyLakes,
-         showLakesUnavailable } from "./lakecard.js";
+         showLakesUnavailable, escapeHtml } from "./lakecard.js";
+import { fetchLakeExtras, fetchReportRoutes } from "./lakeextras.js";
+import { combineLakeSignals } from "./lakesignals.js";
 import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
 import { getLocation, nearest, findZip, locationAllowed,
          savePlaceChoice, savedPlaceChoice, forgetPlaceChoice } from "./location.js";
@@ -24,7 +26,7 @@ import { saveScan, todaysScans } from "./scans.js";
 import { showNearYouStatus, showNearestArea, showFarFromLake } from "./nearyou.js";
 import { findStationsNear, loadStandards, rulesFor, judgeStation } from "./nearby.js";
 import { showStationsNearLoading, showStationsNear, showStationsNearError,
-         clearStationsNear } from "./nearstations.js";
+         clearStationsNear, showStationsNearLake } from "./nearstations.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showLake, showLakeError, showScanStatus, showScanResult,
          askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
@@ -96,6 +98,8 @@ let nationwide = null;
 let lakesFailed = false;
 // How many lakes "See what's near you" lists
 const NEARBY_LAKES = 5;
+// The lake whose card is open, so a slow answer for another lake is thrown away
+let openLakeId = null;
 
 // Jordan Lake: satellite data, runoff, lake level and wind, combined into
 // a verdict for each area.
@@ -172,14 +176,64 @@ function drawLakePins() {
   }
 }
 
-// Show a lake's card, name it in the heading and move the map to it
-function openLakeCard(id) {
+// A lake's card: the satellite verdict right away, then (decided Oct 13) the
+// wind, rain, river flow, lake level and beaches once they load. Jordan Lake's
+// own card skips them: its 10 area cards already have them. The heading names
+// the lake and the map moves to it at once, before the extras arrive.
+async function openLakeCard(id) {
   const lake = nationwide.lakes.find(l => l.id === id);
   if (!lake) return;
-  showLakeCard(lake, nationwide.updatedAt);
+  openLakeId = id;
+  const card = { updatedAt: nationwide.updatedAt, full: null, reportRoutes: null,
+                 onShowStations: showStationsForLake, scroll: true };
+  showLakeCard(lake, card);
   mapHeading.textContent = `${lake.name} (${lake.state})`;
+  // Jordan Lake's card points to its 10 area cards, so show them even when
+  // the chosen place is far away
+  if (lake.id === JORDAN_LAKE_ID) jordanList.hidden = false;
   const map = getMap();
   if (map) map.setView([lake.lat, lake.lng], Math.max(map.getZoom(), LAKE_ZOOM));
+
+  const [extras, reportRoutes] = await Promise.all([
+    lake.id === JORDAN_LAKE_ID ? null : fetchLakeExtras(lake, chosenPlace),
+    fetchReportRoutes()
+  ]);
+  // Another card was opened while this one loaded: drop this answer (like
+  // the station picker's guard)
+  if (openLakeId !== id) return;
+
+  card.reportRoutes = reportRoutes;
+  card.scroll = false;
+  if (extras) {
+    // Each piece already fails soft; this catch is for anything unexpected,
+    // so the card never stays on "Checking…"
+    try {
+      card.full = combineLakeSignals(lakeVerdict(lake), extras);
+      // The pin and "Lakes near you" show the same verdict as the card
+      lake.verdict = card.full;
+      updateLakePin(lake);
+      if (chosenPlace) updateNearYou();
+    } catch (error) {
+      console.error("Failed to combine the lake's signals", error);
+      card.extrasFailed = true;
+    }
+  }
+  showLakeCard(lake, card);
+}
+
+// "Show live water stations near this lake": the same list as for the
+// user's place (nearby.js), around the lake's middle, or for a big lake its
+// shore closest to the user
+async function showStationsForLake(lake, element) {
+  element.innerHTML = "<p>Looking for live USGS water stations near this lake…</p>";
+  try {
+    const point = chosenPlace ? closestPointOfLake(lake, chosenPlace) : lake;
+    const result = await findStationsNear(point);
+    showStationsNearLake(element, result, escapeHtml(lake.name));
+  } catch (error) {
+    console.error("Failed to load the stations near", lake.name, error);
+    element.innerHTML = `<p>Couldn't load the stations near this lake: ${error.message} Try again in a few minutes.</p>`;
+  }
 }
 
 // The latest lake level reading at the dam
@@ -378,9 +432,10 @@ function choosePlace(place) {
   const nearJordan = nearest(AREAS, place).km <= NEAR_LAKE_KM;
   showYouAreHere(place, nearJordan);
 
-  // A new place: a lake card from before no longer fits, and the heading
-  // names where the map is now
+  // A new place: a lake card from before no longer fits (one still loading
+  // is dropped too), and the heading names where the map is now
   clearLakeCard();
+  openLakeId = null;
   jordanList.hidden = !nearJordan;
   pickerBox.hidden = true;
   if (nearJordan) {
@@ -439,6 +494,8 @@ function clearPlace() {
   showNearYouStatus("");
   clearNearbyLakes();
   clearLakeCard();
+  // A lake card still loading its extras is dropped too
+  openLakeId = null;
   clearStationsNear();
   jordanList.hidden = false;
   pickerBox.hidden = false;
