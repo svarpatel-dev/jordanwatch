@@ -40,30 +40,42 @@ jobs:
       - name: Install the tile script's libraries
         run: pip install pillow numpy
 
-      # The last good tiles, in case EPA's image can't be downloaded today
+      # The last good tiles, in case EPA's image can't be downloaded today,
+      # plus the satellite levels they were drawn from (tiles-state), so only
+      # what changed gets redrawn (radar-smooth tiles, Oct 19)
       - name: Bring back the last good tiles
         uses: actions/cache/restore@v6
         with:
-          path: tiles-cache
+          path: |
+            tiles-cache
+            tiles-state
           key: tiles-${{ github.run_id }}
           restore-keys: tiles-
 
-      # Fails soft: if EPA is down, the old tiles stay and the deploy goes on
+      # Fails soft: if EPA is down, the old tiles stay and the deploy goes on.
+      # The first run draws every radar-smooth tile (about 5 minutes); later
+      # runs only redraw around new satellite pixels. The time limit keeps a
+      # stuck run from holding up the deploy.
       - name: Make fresh satellite tiles
-        run: python scripts/make_tiles.py tiles-cache
+        run: python scripts/make_tiles.py tiles-cache tiles-state
         continue-on-error: true
+        timeout-minutes: 30
 
       - name: Save the tiles for next time
         if: hashFiles('tiles-cache/info.json') != ''
         uses: actions/cache/save@v6
         with:
-          path: tiles-cache
+          path: |
+            tiles-cache
+            tiles-state
           key: tiles-${{ github.run_id }}
 
+      # The shorelines file is only for drawing the tiles, so it isn't published
       - name: Put the site together
         run: |
           mkdir _site
-          rsync -a --exclude .git --exclude .github --exclude tiles-cache --exclude _site ./ _site/
+          rsync -a --exclude .git --exclude .github --exclude tiles-cache --exclude tiles-state --exclude _site \
+            --exclude /data/lakes/shorelines.json.gz ./ _site/
           if [ -d tiles-cache ]; then cp -r tiles-cache _site/tiles; fi
 
       - name: Set up GitHub Pages

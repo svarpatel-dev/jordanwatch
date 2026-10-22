@@ -2,7 +2,10 @@
 // an Avoid / Caution / Low Risk verdict for each Jordan Lake area, with the
 // reasons. Knows nothing about the page or where the data came from.
 // Rules decided Oct 3–5 (see the project notes: Key decisions → Risk engine);
-// rule B, severity within Avoid and "least affected" decided Oct 13, built Oct 15.
+// rule B and "least affected" decided Oct 13, built Oct 15. Three WHO levels
+// only, with no stratification within Avoid (decided Oct 21, after NC DHHS's
+// feedback). Each signal has a short plain headline for the Why card and
+// the exact numbers as its text (decided Oct 21).
 
 // Verdict levels from best to worst. A higher position means worse.
 const LEVELS = ["low", "caution", "avoid"];
@@ -10,11 +13,6 @@ const LEVELS = ["low", "caution", "avoid"];
 // WHO 1999/2003 recreational guideline levels for cyanobacteria (cells/mL)
 const WHO_LOW_RISK = 20000;
 const WHO_MODERATE_RISK = 100000;
-
-// Severity within Avoid (decided Oct 13), the same bands as the map legend:
-// "high" 100,000–500,000 · "very high" 500,000–1 million · "extreme" above
-const VERY_HIGH_CELLS = 500000;
-const EXTREME_CELLS = 1000000;
 
 // Satellite image age limits, in days
 const IMAGE_CURRENT_DAYS = 7;
@@ -45,6 +43,11 @@ export const CALM_MS = 0.5;
 export const SCUM_WIND_MAX_MS = 3;
 export const ONSHORE_WINDOW_DEG = 45;
 
+// The rules above stay in meters per second, the unit the research and
+// Open-Meteo use; the page shows miles per hour (decided Oct 19), so 3 m/s
+// shows as about 7 mph. 1 m/s = 2.237 mph.
+const MPH_PER_MS = 2.23694;
+
 // scans = today's camera scans the user confirmed as a possible bloom
 // (scans.js); empty if there are none
 export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans = []) {
@@ -59,7 +62,9 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
     const point = pointsById[area.cyanPointId];
     const borrowed = area.cyanPointId !== area.id;
 
-    // Each signal gives a level and a "why" sentence.
+    // Each signal gives a level, a headline and a "why" sentence
+    // (unavailable: true when its data couldn't load, so the Why card shows
+    // it in gray)
     const signals = [
       satelliteSignal(point, borrowed),
       runoffReason,
@@ -89,9 +94,6 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
       name: area.name,
       swimBeach: area.swimBeach,
       level,
-      // How bad an Avoid is, from the satellite reading (decided Oct 13);
-      // null when the verdict isn't Avoid or the satellite isn't the reason
-      severity: level === "avoid" ? avoidSeverity(point) : null,
       cellsPerMl: point?.cellsPerMl ?? null,
       imageDate: point?.imageDate ?? null,
       imageAgeDays: point?.imageAgeDays ?? null,
@@ -119,13 +121,12 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
     const bestLevel = better[0].level;
     const tied = better.filter(other => other.level === bestLevel);
     const pick = tied.find(other => other.swimBeach) ?? tied[0];
-    verdict.goInstead = { id: pick.id, name: pick.name, level: pick.level,
-                          severity: pick.severity, swimBeach: pick.swimBeach };
+    verdict.goInstead = { id: pick.id, name: pick.name, level: pick.level, swimBeach: pick.swimBeach };
   }
 
   // Every area at Avoid (decided Oct 13): there's no better area to send
-  // people to, so point to the least affected one. Swimming is never
-  // suggested; the page says shore activities only.
+  // people to, so the page says where the reading is lowest (still Avoid).
+  // Swimming is never suggested.
   const allAvoid = verdicts.every(v => v.level === "avoid");
 
   return {
@@ -144,10 +145,11 @@ function satelliteSignal(point, borrowed) {
   // No reading, or too old to use: Caution, never Low Risk
   if (!point || point.status !== "ok") {
     return { source: "satellite", level: "caution", noRecentSatellite: true,
-             text: "No satellite reading is available here." };
+             headline: "No recent satellite look", text: "No satellite reading is available here." };
   }
   if (point.imageAgeDays > IMAGE_MAX_DAYS) {
     return { source: "satellite", level: "caution", noRecentSatellite: true,
+             headline: "No recent satellite look",
              text: `No recent satellite data (the latest image is ${point.imageAgeDays} days old).` };
   }
 
@@ -158,16 +160,20 @@ function satelliteSignal(point, borrowed) {
     ? `${prefix}below detection (under about 6,500 cells/mL)`
     : `${prefix}about ${cells.toLocaleString()} cells/mL (average of the nearby pixels)`;
   let level;
+  let headline;
   let text;
 
   if (cells >= WHO_MODERATE_RISK) {
     level = "avoid";
+    headline = "Strong bloom near this area";
     text = `${amount}, above the WHO 1999/2003 moderate-risk level (100,000).`;
   } else if (cells >= WHO_LOW_RISK) {
     level = "caution";
+    headline = "Some algae, below the Avoid level";
     text = `${amount}, between the WHO 1999/2003 levels (20,000–100,000).`;
   } else {
     level = "low";
+    headline = point.belowDetection ? "No bloom seen" : "Little algae, below the Caution level";
     text = `${amount}, below the WHO 1999/2003 low-risk level (20,000).`;
   }
 
@@ -177,6 +183,7 @@ function satelliteSignal(point, borrowed) {
   const highest = point.maxCellsPerMl ?? 0;
   if (highest >= WHO_MODERATE_RISK && level === "low") {
     level = "caution";
+    headline = "Mostly low, but a few strong-bloom pixels";
     text += ` But the highest one was about ${highest.toLocaleString()}, above 100,000, so low levels can't be confirmed.`;
   } else if (highest >= WHO_MODERATE_RISK && level === "caution") {
     text += ` The highest one was about ${highest.toLocaleString()}.`;
@@ -185,40 +192,24 @@ function satelliteSignal(point, borrowed) {
   // An image 7–14 days old can keep a warning but can't give an all-clear
   if (point.imageAgeDays > IMAGE_CURRENT_DAYS && level === "low") {
     level = "caution";
+    headline = "Low, but the image is too old to confirm";
     text += ` But the image is ${point.imageAgeDays} days old, so low levels can't be confirmed.`;
   }
 
-  return { source: "satellite", level, noRecentSatellite: false, text };
-}
-
-// --- Severity within Avoid (decided Oct 13) ---
-// From the latest recent reading. Null when there's no recent reading at the
-// Avoid level (e.g. wind or a camera scan raised the verdict instead).
-function avoidSeverity(point) {
-  if (!point || point.status !== "ok" || point.imageAgeDays > IMAGE_MAX_DAYS) return null;
-
-  const cells = point.cellsPerMl;
-  if (cells >= EXTREME_CELLS) return "extreme";
-  if (cells >= VERY_HIGH_CELLS) return "very-high";
-  if (cells >= WHO_MODERATE_RISK) return "high";
-  return null;
+  return { source: "satellite", level, noRecentSatellite: false, headline, text };
 }
 
 // --- Least affected area, when every area is at Avoid (decided Oct 13) ---
-// The area with the lowest recent satellite reading. If a swim beach has the
-// same severity (e.g. both "Avoid: high"), the beach comes first, like
-// "Go here instead" (decided Oct 7). Only areas with their own recent reading
-// count (not Robeson Creek, which borrows Vista Point's).
+// The area with the lowest recent satellite reading (the page says it's
+// still Avoid). Only areas with their own recent reading count (not Robeson
+// Creek, which borrows Vista Point's).
 function leastAffectedArea(ranked) {
   const withReading = ranked.filter(a => a.cellsPerMl !== null && !a.noRecentSatellite && !a.borrowedFrom);
   if (withReading.length === 0) return null;
 
   // ranked is best first, so the first one has the lowest reading
   const lowest = withReading[0];
-  const sameSeverity = withReading.filter(a => a.severity === lowest.severity);
-  const pick = sameSeverity.find(a => a.swimBeach) ?? lowest;
-  return { id: pick.id, name: pick.name, level: pick.level,
-           severity: pick.severity, swimBeach: pick.swimBeach };
+  return { id: lowest.id, name: lowest.name, level: lowest.level, cellsPerMl: lowest.cellsPerMl };
 }
 
 // --- Trend between the last two images (decided Oct 12) ---
@@ -250,15 +241,17 @@ function satelliteTrend(point) {
 // --- Lake level at the dam (decided Oct 4) ---
 function lakeLevelSignal(lakeLevel) {
   if (!lakeLevel) {
-    return { source: "lake-level", level: null, text: "Lake level is unavailable right now." };
+    return { source: "lake-level", level: null, unavailable: true,
+             headline: "Couldn't load the lake level", text: "Lake level is unavailable right now." };
   }
 
   const feet = lakeLevel.value.toFixed(1);
   if (lakeLevel.value >= HIGH_WATER_FT) {
-    return { source: "lake-level", level: "caution",
+    return { source: "lake-level", level: "caution", headline: "High water",
              text: `High water: the lake is at ${feet} ft (normal: ${NORMAL_POOL_FT} ft). Beaches may be closed; check NC State Parks.` };
   }
-  return { source: "lake-level", level: "low",
+  const headline = lakeLevel.value < NORMAL_POOL_FT - 1 ? "Lake level a little low" : "Lake level normal";
+  return { source: "lake-level", level: "low", headline,
            text: `Lake level ${feet} ft (normal: ${NORMAL_POOL_FT} ft).` };
 }
 
@@ -270,7 +263,8 @@ function runoffSignal(runoff) {
   const normal = runoff?.flowPercentiles ?? null;
 
   if (rain === null && (flow === null || normal === null)) {
-    return { source: "runoff", level: null, text: "Rain and river data are unavailable right now." };
+    return { source: "runoff", level: null, unavailable: true,
+             headline: "Couldn't load rain and river data", text: "Rain and river data are unavailable right now." };
   }
 
   const heavyRain = rain !== null && rain >= HEAVY_RAIN_IN;
@@ -287,50 +281,51 @@ function runoffSignal(runoff) {
   }
 
   if (heavyRain || highFlow) {
-    const headline = heavyRain ? "Heavy rain recently" : "The Haw River is running high after rain upstream";
-    return { source: "runoff", level: "caution",
-             text: `${headline}: wait 48 hours before swimming (${facts.join("; ")}). Storm runoff can carry bacteria into the lake.` };
+    const headline = heavyRain ? "Heavy rain recently" : "River running high after rain";
+    const why = heavyRain ? "Heavy rain recently" : "The Haw River is running high after rain upstream";
+    return { source: "runoff", level: "caution", headline,
+             text: `${why}: wait 48 hours before swimming (${facts.join("; ")}). Storm runoff can carry bacteria into the lake.` };
   }
-  return { source: "runoff", level: "low",
-           text: `No heavy rain recently (${facts.join("; ")}).` };
+  return { source: "runoff", level: "low", headline: "No heavy rain recently",
+           text: `${facts.join("; ")}.` };
 }
 
 // --- Wind (decided Oct 5) ---
 function windSignal(area, point, wind) {
-  const noEffect = text => ({ source: "wind", level: null, raises: false, text });
+  const noEffect = (headline, text) => ({ source: "wind", level: null, raises: false, headline, text });
 
-  if (!wind) return noEffect("Wind data is unavailable right now.");
+  if (!wind) return { ...noEffect("Couldn't load wind", "Wind data is unavailable right now."), unavailable: true };
 
-  const speed = wind.speedMs.toFixed(1);
+  const speed = mphText(wind.speedMs);
   const from = compassName(wind.fromDeg);
 
   if (area.onshoreWindFrom === null) {
-    return noEffect(`Wind: ${speed} m/s from the ${from}.`);
+    return noEffect(`Wind from the ${from}`, `Wind: ${speed} from the ${from}.`);
   }
   if (wind.speedMs < CALM_MS) {
-    return noEffect(`Wind: nearly calm (${speed} m/s).`);
+    return noEffect("Nearly calm", `Wind: nearly calm (${speed}).`);
   }
   if (wind.speedMs >= SCUM_WIND_MAX_MS) {
-    return noEffect(`Wind: ${speed} m/s from the ${from}, strong enough to mix floating algae down.`);
+    return noEffect("Wind strong enough to mix algae down", `Wind: ${speed} from the ${from}, strong enough to mix floating algae down.`);
   }
 
   const onshore = angleBetween(wind.fromDeg, area.onshoreWindFrom) <= ONSHORE_WINDOW_DEG;
   if (!onshore) {
-    return noEffect(`Wind: light (${speed} m/s) from the ${from}, not toward this shore.`);
+    return noEffect("Light wind, not toward this shore", `Wind: light (${speed}) from the ${from}, not toward this shore.`);
   }
 
   // Light wind toward this shore only matters if a recent image shows
   // algae to push
   const hasRecentImage = point?.status === "ok" && point.imageAgeDays <= IMAGE_MAX_DAYS;
   if (!hasRecentImage) {
-    return noEffect(`Wind: light (${speed} m/s) from the ${from}, toward this shore (no recent satellite image to show how much algae there is).`);
+    return noEffect("Light wind toward this shore", `Wind: light (${speed}) from the ${from}, toward this shore (no recent satellite image to show how much algae there is).`);
   }
   if (point.cellsPerMl < WHO_LOW_RISK) {
-    return noEffect(`Wind: light (${speed} m/s) from the ${from}, toward this shore, but the average algae level here is low.`);
+    return noEffect("Light wind toward this shore, little algae", `Wind: light (${speed}) from the ${from}, toward this shore, but the average algae level here is low.`);
   }
 
-  return { source: "wind", level: null, raises: true,
-           text: `Light wind (${speed} m/s) from the ${from} is likely pushing floating algae toward this shore.` };
+  return { source: "wind", level: null, raises: true, headline: "Light wind toward this shore",
+           text: `Light wind (${speed}) from the ${from} is likely pushing floating algae toward this shore.` };
 }
 
 // --- Camera scan (decided Oct 11) ---
@@ -338,7 +333,7 @@ function windSignal(area, point, wind) {
 function scanSignal(area, scans) {
   const scan = scans.find(s => s.areaId === area.id);
   if (!scan) return null;
-  return { source: "camera", level: null,
+  return { source: "camera", level: null, headline: "Your scan suggested a bloom",
            text: `Your camera scan at ${scan.time} suggested a possible bloom (${scan.percent}% confident; unconfirmed, shown only on this phone).` };
 }
 
@@ -369,6 +364,11 @@ export function raiseOneLevel(level) {
 export function angleBetween(a, b) {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
+}
+
+// 2.8 m/s → "6 mph" (whole miles per hour are plenty for wind)
+export function mphText(metersPerSecond) {
+  return `${Math.round(metersPerSecond * MPH_PER_MS)} mph`;
 }
 
 // 0° → "north", 90° → "east", 225° → "southwest"

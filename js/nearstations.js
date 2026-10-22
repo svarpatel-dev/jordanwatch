@@ -1,17 +1,9 @@
-// The "Live stations near you" list in the Stations section: every live
-// USGS station near the place the user chose, with its verdict and the
-// state standards it was compared with. Only draws; nearby.js finds and
-// judges the stations. Plain text for now; icons come in the Week 4 design pass.
+// The "Live stations near you" card: every live USGS station near the
+// place the user chose, with its verdict and the state standards it was
+// compared with. Only draws; nearby.js finds and judges the stations.
 
-// The same words as the station picker's badges, without the emoji dots
-const LEVEL_NAMES = {
-  low: "Low Risk",
-  caution: "Caution",
-  high: "High Risk",
-  limited: "Limited Data Available",
-  "no-data": "No Data Available",
-  "not-rated": "Not rated"
-};
+import { stationBadge } from "./cardparts.js";
+import { icon } from "./icons.js";
 
 const TIER_NAMES = {
   full: "Full data (DO + turbidity)",
@@ -60,19 +52,13 @@ function box() {
   return document.getElementById("near-stations");
 }
 
-// While the two USGS requests run
+// While the two USGS requests run (the card's heading is in index.html)
 export function showStationsNearLoading() {
-  box().innerHTML = `
-    <h3>Live stations near you</h3>
-    <p>Looking for live USGS water stations nearby…</p>
-  `;
+  box().innerHTML = "<p>Looking for live USGS water stations nearby…</p>";
 }
 
 export function showStationsNearError(message) {
-  box().innerHTML = `
-    <h3>Live stations near you</h3>
-    <p>Couldn't load the stations near you: ${message} Try again in a few minutes.</p>
-  `;
+  box().innerHTML = `<p>${icon("warning")} Couldn't load the stations near you: ${message} Try again in a few minutes.</p>`;
 }
 
 // "Clear": the list goes away with the place
@@ -83,7 +69,7 @@ export function clearStationsNear() {
 // result = { stations, miles } from nearby.js; place = the chosen place
 export function showStationsNear(result, place) {
   const where = place.source === "zip" ? `ZIP ${place.zip}` : "your location";
-  box().innerHTML = stationsHtml("Live stations near you", result, where);
+  box().innerHTML = stationsHtml(null, result, where);
 }
 
 // The same list inside a lake card, for the stations near the lake (decided
@@ -92,12 +78,14 @@ export function showStationsNearLake(element, result, lakeName) {
   element.innerHTML = stationsHtml(`Live stations near ${lakeName}`, result, lakeName);
 }
 
+// heading = null when the card already has one
 function stationsHtml(heading, result, where) {
   const { stations, miles } = result;
+  const title = heading ? `<h3>${heading}</h3>` : "";
 
   if (stations.length === 0) {
     return `
-      <h3>${heading}</h3>
+      ${title}
       <p>No live water stations within about ${miles} miles of ${where}.</p>
     `;
   }
@@ -107,8 +95,8 @@ function stationsHtml(heading, result, where) {
   const count = stations.length === 1 ? "1 live USGS station" : `${stations.length} live USGS stations`;
 
   return `
-    <h3>${heading}</h3>
-    <p>${count} within about ${miles} miles of ${where}, nearest first.
+    ${title}
+    <p class="small">${count} within about ${miles} miles of ${where}, nearest first.
       Tap a station to see its readings.</p>
     ${stationGroup("Water quality", quality)}
     ${stationGroup("Flow and lake level only (no rating)", flowOnly)}
@@ -121,10 +109,10 @@ function stationGroup(title, stations) {
   if (stations.length === 0) return "";
   const rest = stations.slice(SHOW_FIRST);
   return `
-    <p><strong>${title} (${stations.length})</strong></p>
+    <h3>${title} (${stations.length})</h3>
     ${stations.slice(0, SHOW_FIRST).map(stationCard).join("")}
     ${rest.length > 0 ? `
-      <details>
+      <details class="more">
         <summary>Show ${rest.length} more, farther away</summary>
         ${rest.map(stationCard).join("")}
       </details>` : ""}
@@ -138,15 +126,18 @@ function stationCard(station) {
   const number = station.id.replace("USGS-", "");
 
   return `
-    <details>
-      <summary><strong>${readableName(station.name)}</strong> (${describeDistance(station.km)}):
-        ${LEVEL_NAMES[risk.level]}</summary>
-      <p><small>USGS ${number} · ${site} · ${TIER_NAMES[station.tier]}</small></p>
+    <details class="station">
+      <summary>
+        <span><strong>${readableName(station.name)}</strong><small>${describeDistance(station.km)}</small></span>
+        ${stationBadge(risk.level)}
+        ${icon("chevron-right")}
+      </summary>
+      <p class="small">USGS ${number}. ${site}. ${TIER_NAMES[station.tier]}.</p>
       <p>${risk.reason}</p>
-      ${risk.note ? `<p><em>${risk.note}</em></p>` : ""}
-      ${risk.isOutdated ? "<p><em>Note: the reading is 3–24 hours old.</em></p>" : ""}
+      ${risk.note ? `<p class="small">${icon("info")} ${risk.note}</p>` : ""}
+      ${risk.isOutdated ? `<p class="small">${icon("warning")} The reading is 3–24 hours old.</p>` : ""}
       <p>${readingLines(station.readings)}</p>
-      <p><small>Latest reading: ${howLongAgo(latestTime(station.readings))} ago.</small></p>
+      <p class="small">Latest reading: ${howLongAgo(latestTime(station.readings))} ago.</p>
       ${standardsLines(station)}
     </details>
   `;
@@ -212,7 +203,7 @@ function standardsLines(station) {
   if (rules.isTidal) {
     lines.push("Tidal (partly salty) water: freshwater standards may not fit exactly.");
   }
-  return `<p><small>${lines.join(" ")}</small></p>`;
+  return `<p class="small">${lines.join(" ")}</p>`;
 }
 
 // Under the list: which class of water each state's numbers are for
@@ -232,11 +223,11 @@ function aboutStandards(quality) {
   if (lines.length === 0) return "";
 
   return `
-    <p><small><strong>About the standards.</strong> Each state's numbers for its warm-water
+    <p class="small"><strong>About the standards.</strong> Each state's numbers for its warm-water
       fish class, or its closest general one:<br>
       ${lines.join("<br>")}<br>
       A station's water may officially have a stricter or looser class. Caution is
-      JordanWatch's own early-warning band, not a state rule. Not an official advisory.</small></p>
+      JordanWatch's own early-warning band, not a state rule. Not an official advisory.</p>
   `;
 }
 

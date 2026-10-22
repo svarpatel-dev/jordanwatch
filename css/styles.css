@@ -1,96 +1,551 @@
-/* JordanWatch styles. The full design comes in Week 4; for now, only what
-   the map needs to show up. */
+/* JordanWatch styles (design session 1, Oct 19). Modeled on a weather
+   app's layout: the answer first in big type, a real map, clean cards.
+   Color only where it means something: the verdict levels. */
 
-/* The "If exposed" box: easy to spot at the top of the page */
-#if-exposed {
-  max-width: 720px;
-  margin: 8px 0 16px;
-  padding: 8px 12px;
-  border: 2px solid #d93025;
-  border-radius: 8px;
+/* --- Tokens: every color in one place --- */
+:root {
+  --ink: #16202a;          /* all text */
+  --ink-soft: #5b6670;     /* secondary text */
+  --paper: #ffffff;        /* cards, sheets */
+  --page: #eef1f4;         /* page background */
+  --line: #d9dee3;         /* hairlines, borders */
+  --navy: #0f2b46;         /* header + tab bar */
+  --navy-soft: #c9d6e3;    /* quiet text on navy */
+  --blue: #0b5cad;         /* "you are here", links, locate button. Nothing else. */
+  --avoid: #d93025;        /* one red for every Avoid (three WHO levels only, Oct 21) */
+  --caution: #e39b00;
+  --low: #1b8a3a;
+  /* A slightly darker green behind white text, so small text passes the
+     4.5:1 contrast rule (--low itself is 4.4:1 with white) */
+  --low-block: #157a32;
+  --nodata: #6b7680;       /* gray: no recent reading, limited data, no coverage */
+
+  --gutter: 16px;
+  --radius: 10px;
+  --tabbar-height: 64px;
 }
 
-/* "See what's near you": a quieter box under the "If exposed" one */
-#near-you {
-  max-width: 720px;
-  margin: 0 0 16px;
-  padding: 8px 12px;
-  border: 1px solid #c4c4c4;
-  border-radius: 8px;
+/* --- Base --- */
+* { box-sizing: border-box; }
+
+/* Bug 15 fix: an element with the hidden attribute stays hidden even when
+   a rule below gives it a display (like #scan-video's display: block) */
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Public Sans", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  /* Room for the tab bar at the bottom */
+  padding-bottom: calc(var(--tabbar-height) + 24px + env(safe-area-inset-bottom));
 }
 
-/* Keep the ZIP box on the same line as the GPS button when there's room */
-#near-zip-form {
-  display: inline-block;
-  margin: 6px 0;
+h1, h2, h3, p { margin: 0; }
+a { color: var(--blue); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* A clear outline for keyboard users on every control */
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.topbar :focus-visible, .tabbar :focus-visible { outline-color: #ffffff; }
+
+.small { font-size: 12.5px; color: var(--ink-soft); }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
 }
 
-/* The "You are here" dot on the map: a blue circle with a white ring */
+/* --- Icons: drawn once in the sprite (index.html), sized here --- */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.i {
+  width: 16px; height: 16px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: -3px;
+}
+.i-md { width: 20px; height: 20px; }
+.i-lg { width: 24px; height: 24px; }
+
+/* --- Header --- */
+.topbar {
+  position: sticky; top: 0; z-index: 1100;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px var(--gutter);
+  background: var(--navy); color: #ffffff;
+}
+.brand { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.place-button {
+  margin-left: auto; min-width: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 4px; border: 0; background: none;
+  color: var(--navy-soft); font-size: 14px;
+}
+.place-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exposed-button {
+  flex: none; display: flex; align-items: center; gap: 5px;
+  padding: 6px 9px; border: 0; border-radius: 6px;
+  background: var(--avoid); color: #ffffff; font-size: 13px; font-weight: 600;
+}
+
+main { max-width: 1100px; margin: 0 auto; }
+
+/* --- The conditions block: colored by the verdict --- */
+.now { padding: 18px var(--gutter) 16px; color: #ffffff; }
+.now-avoid { background: var(--avoid); }
+.now-caution { background: var(--caution); color: var(--ink); }   /* white on amber fails contrast */
+.now-low { background: var(--low-block); }
+.now-none { background: var(--nodata); }
+
+.now-where { font-size: 15px; }
+.now-where strong { font-weight: 700; }
+.now-where span { opacity: 0.9; }
+.now-verdict {
+  margin: 4px 0 2px;
+  font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+}
+.now-verdict-none { font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; }
+.now-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13.5px; }
+.now-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.now-line { margin-top: 6px; font-size: 13.5px; }
+.now-action, .now-go {
+  display: flex; align-items: flex-start; gap: 10px;
+  width: 100%; margin-top: 12px; padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 14px; text-align: left;
+}
+.now-go { margin-top: 8px; color: inherit; }
+/* No place chosen: "Showing Jordan Lake. Search your ZIP..." (opens the search) */
+.now-hint {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 0;
+  border: 0; background: none; color: inherit; font-size: 13.5px; text-align: left;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.now-action > .i { margin-top: 2px; }
+.now-go { align-items: center; }
+.now-go .i { margin-left: auto; }
+/* Not a button (a beach can't be opened), so no box around it */
+.now-go-text { display: block; padding: 0; border: 0; background: none; }
+.now-caution .now-action, .now-caution .now-go:not(.now-go-text) {
+  border-color: rgba(22, 32, 42, 0.35); background: rgba(255, 255, 255, 0.22);
+}
+
+/* The one load animation (decided Oct 19): the color fills in */
+.now-enter { animation: now-fill 300ms ease-out; }
+@keyframes now-fill { from { filter: saturate(0); } }
+
+/* --- First visit only (decided Oct 21): the app in 3 steps --- */
+.welcome {
+  margin: 12px var(--gutter) 0; padding: 12px 14px 14px;
+  background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--blue);
+  border-radius: var(--radius);
+}
+.welcome-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.welcome-head h2 { font-size: 16px; font-weight: 700; }
+.welcome-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin: 10px 0 0; padding: 0; list-style: none;
+}
+.welcome-steps button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  width: 100%; height: 100%; padding: 8px 9px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--page);
+  font-size: 13px; font-weight: 600; line-height: 1.3; text-align: left;
+}
+.step-number {
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--blue); color: #ffffff; font-size: 12px; font-weight: 700;
+}
+
+/* --- Rows of tiles (scroll sideways, like an hourly forecast) --- */
+.row-wrap { padding: 12px 0; background: var(--paper); border-bottom: 1px solid var(--line); }
+.row-title { padding: 0 var(--gutter); font-size: 16px; font-weight: 700; }
+.row-caption { padding: 2px var(--gutter) 10px; font-size: 13px; color: var(--ink-soft); }
+.tiles {
+  display: flex; gap: 8px;
+  padding: 2px var(--gutter) 4px;
+  overflow-x: auto; scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--gutter);   /* snap to the gutter, not the edge */
+  scrollbar-width: thin;
+}
+.tile {
+  flex: none; width: 118px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 8px 9px 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper); font-size: 12.5px; line-height: 1.3; text-align: left;
+  scroll-snap-align: start;
+}
+.tile strong {
+  width: 100%; margin-top: 6px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tile small { color: var(--ink-soft); font-size: 11.5px; }
+.tile[aria-pressed="true"] { border-color: var(--ink); background: #f6f7f9; }
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--dot);
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px var(--ink);
+  margin: 3px 0 0 3px;
+}
+
+/* --- Cards --- */
+.card {
+  margin: 12px var(--gutter) 0; padding: 12px 14px 14px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.card h2 {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px; font-size: 16px; font-weight: 700;
+}
+.card h3 { margin: 12px 0 4px; font-size: 14px; font-weight: 700; }
+/* One line under every section heading saying what the section does (Oct 21) */
+.card-desc { margin: -4px 0 10px; font-size: 13px; color: var(--ink-soft); }
+/* A row of tiles inside a card lines up with the card's text */
+.card .tiles { margin: 0 -14px; padding-left: 14px; padding-right: 14px; scroll-padding-inline: 14px; }
+.sat-desc { margin: 0; padding: 0 14px 10px; }
+/* Sections reached from the More tab's directory stop below the header */
+.card, .about h2 { scroll-margin-top: 64px; }
+.card > p + p, .card > p + ul, .card > ul + p { margin-top: 8px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+.card-head h2 { margin: 0; }
+.card-note { padding: 8px 14px 12px; font-size: 12px; color: var(--ink-soft); }
+.note {
+  margin-top: 10px; padding: 8px 10px; border-radius: 8px;
+  background: var(--page); font-size: 13.5px;
+}
+.link-button {
+  border: 0; background: none; padding: 4px 0;
+  color: var(--blue); font-size: 14px; font-weight: 600;
+}
+.plain-list { margin: 6px 0 0; padding: 0; list-style: none; }
+.plain-list li { display: flex; gap: 8px; padding: 4px 0; font-size: 14px; }
+.plain-list .i { margin-top: 2px; color: var(--ink-soft); }
+
+/* Buttons that look like a line in a card */
+.button-line, .button-solid {
+  display: flex; align-items: flex-start; gap: 8px;
+  width: 100%; margin-top: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper); color: var(--ink);
+  font-size: 14px; font-weight: 600; text-align: left; text-decoration: none;
+}
+.button-line > .i, .button-solid > .i { margin-top: 2px; }
+.button-solid { background: var(--navy); border-color: var(--navy); color: #ffffff; justify-content: center; }
+.card-actions { margin-top: 4px; }
+
+/* --- Satellite card --- */
+.sat-card { padding: 0; overflow: hidden; }
+/* The legend strip: "Cells/mL" · the 6 bands with the WHO levels under
+   their edges · the on/off switch */
+.legend-strip {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 3px 10px;
+  padding: 7px 14px 6px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  font-size: 11.5px; color: var(--ink-soft);
+}
+.legend-unit { grid-row: 1; }
+.legend-bands { grid-row: 1; grid-column: 2; display: flex; height: 8px; border-radius: 2px; overflow: hidden; }
+.legend-bands i { flex: 1; }
+/* Each label sits under the edge between two bands: 20k after band 1 of 6,
+   100k after band 3, 1M after band 5 */
+.legend-ticks { grid-row: 2; grid-column: 2; position: relative; height: 14px; font-size: 11px; }
+.legend-ticks span { position: absolute; top: 0; transform: translateX(-50%); }
+.switch {
+  grid-row: 1 / span 2; grid-column: 3;
+  display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600;
+}
+/* A checkbox drawn as an on/off switch (still a checkbox for keyboards and
+   screen readers) */
+.switch input {
+  appearance: none; position: relative; flex: none;
+  width: 34px; height: 20px; margin: 0; border-radius: 999px;
+  background: #b9c1c8; transition: background 150ms;
+}
+.switch input::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #ffffff;
+  transition: transform 150ms;
+}
+.switch input:checked { background: var(--navy); }
+.switch input:checked::after { transform: translateX(14px); }
+.map-wrap { position: relative; }
+#map { height: 280px; background: #e6e9ec; }
+.locate-button {
+  position: absolute; right: 10px; bottom: 26px; z-index: 1000;
+  display: grid; place-items: center;
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--paper); color: var(--blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* The full map: the Satellite card fills the screen above the tab bar */
+.sat-card.is-full {
+  position: fixed; inset: 0 0 calc(var(--tabbar-height) + env(safe-area-inset-bottom)) 0;
+  z-index: 1200; margin: 0; border: 0; border-radius: 0;
+  display: flex; flex-direction: column;
+}
+.sat-card.is-full .map-wrap { flex: 1; }
+.sat-card.is-full #map { height: 100%; }
+.sat-card.is-full .card-note { display: none; }
+.sat-card.is-full .locate-button { bottom: 104px; }
+body.map-open { overflow: hidden; }
+.map-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1000;
+  padding: 12px var(--gutter) 14px; border-radius: 14px 14px 0 0;
+  background: var(--paper); box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+}
+.map-sheet .button-line { margin-top: 8px; }
+
+/* Leaflet: the pins and the dot */
+.leaflet-container { font-family: inherit; }
+/* Gray basemap under the satellite colors (design decision 1, Oct 19) */
+.basemap-muted { filter: grayscale(1) contrast(0.8) brightness(1.08); }
+.satellite-tiles { animation: fade-in 300ms ease-out; }
+@keyframes fade-in { from { opacity: 0; } }
+.area-pin span {
+  display: block; width: 16px; height: 16px; margin: 3px;
+  border: 2.5px solid #ffffff; border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ink), 0 1px 3px rgba(0, 0, 0, 0.35);
+}
 .you-are-here {
-  box-sizing: border-box;
-  background: #1a73e8;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  background: var(--blue); border: 3px solid #ffffff; border-radius: 50%;
+  box-shadow: 0 0 0 8px rgba(11, 92, 173, 0.18);
+}
+.intake-pin {
+  display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--paper); color: var(--blue);
+}
+.intake-pin .i { width: 16px; height: 16px; }
+.map-note {
+  max-width: 220px; padding: 4px 8px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94); font-size: 11px; color: var(--ink-soft);
+}
+.leaflet-control-attribution { font-size: 10px; }
+
+/* --- Why card --- */
+.why-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.why-row {
+  display: grid; grid-template-columns: 24px 1fr; gap: 10px;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.why-row:first-child { border-top: 0; }
+.why-row > .i { margin-top: 1px; }
+/* Each row: the signal's name (small), its plain headline, then the exact
+   numbers in smaller type (decided Oct 21) */
+.why-name { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.why-head { display: block; margin-top: 1px; font-size: 15px; font-weight: 700; }
+.why-row p { margin-top: 2px; font-size: 13px; color: var(--ink-soft); }
+.why-off { color: var(--ink-soft); }
+.why-off .why-head { font-weight: 600; }
+.toxin-note { margin-top: 10px; }
+.why-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; vertical-align: 1px;
+}
+.tag-avoid { background: var(--avoid); color: #ffffff; }
+.tag-caution { background: var(--caution); color: var(--ink); }
+.tag-up { border: 1px solid var(--ink); }
+
+/* --- What to do card --- */
+.todo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.todo h3 { margin: 0 0 2px; font-size: 13.5px; }
+.todo p { font-size: 13.5px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tags span {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px;
 }
 
-/* A Leaflet map needs a set height, or it collapses to nothing */
-#map {
-  height: 360px;
-  max-width: 720px;
-  margin: 8px 0 16px;
-  border-radius: 8px;
+/* --- Stations --- */
+.badge {
+  flex: none; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.badge-avoid { background: var(--avoid); color: #ffffff; }
+.badge-caution { background: var(--caution); color: var(--ink); }
+.badge-low { background: var(--low-block); color: #ffffff; }
+.badge-none { background: #e3e7eb; color: var(--ink); }
+.station { border-top: 1px solid var(--line); }
+.station summary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; list-style: none; cursor: pointer;
+}
+.station summary::-webkit-details-marker { display: none; }
+.station summary > span:first-child { flex: 1; min-width: 0; }
+.station summary strong { display: block; font-weight: 600; font-size: 14px; }
+.station summary small { color: var(--ink-soft); font-size: 12px; }
+.station summary .i { color: var(--ink-soft); transition: transform 150ms; }
+.station[open] summary .i { transform: rotate(90deg); }
+.station > p { margin-bottom: 8px; font-size: 14px; }
+details.more summary { padding: 8px 0; color: var(--blue); font-weight: 600; font-size: 14px; cursor: pointer; }
+#station-picker-box label { display: block; margin-top: 10px; font-size: 13px; font-weight: 600; }
+#station-picker {
+  width: 100%; margin-top: 4px; padding: 9px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 15px;
+}
+.station-result { margin-top: 10px; font-size: 14px; }
+.station-result p + p { margin-top: 6px; }
+.station-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.footer { padding: 16px var(--gutter) 0; font-size: 12px; color: var(--ink-soft); }
+
+/* --- Tab bar (decided Oct 19): Lake · Scan (raised) · More --- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1300;
+  display: grid; grid-template-columns: repeat(3, 1fr); align-items: end;
+  height: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  padding: 0 8px env(safe-area-inset-bottom);
+  background: var(--navy);
+}
+/* All three labels sit on the same line; only the Scan circle rises */
+.tabbar button {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px;
+  height: 100%; padding: 0 0 9px; border: 0; background: none;
+  color: var(--navy-soft); font-size: 11.5px; font-weight: 600;
+}
+/* The tab you're on: white label + a white bar on top (Scan: a white ring) */
+.tabbar button { position: relative; }
+.tabbar button[aria-current="page"] { color: #ffffff; font-weight: 700; }
+.tabbar button[aria-current="page"]:not(.tab-scan)::before {
+  content: ""; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  width: 28px; height: 3px; border-radius: 3px; background: #ffffff;
+}
+.scan-circle {
+  display: grid; place-items: center;
+  width: 56px; height: 56px; margin-top: -26px; border-radius: 50%;
+  border: 4px solid var(--navy); background: var(--navy-soft); color: var(--navy);
+  box-shadow: 0 0 0 1px var(--navy-soft);
+}
+.tab-scan[aria-current="page"] .scan-circle { background: #ffffff; box-shadow: 0 0 0 3px #ffffff; }
+
+/* --- Sheets (<dialog>): slide up from the bottom --- */
+dialog.sheet {
+  width: 100%; max-width: 560px; max-height: 86vh;
+  margin: auto auto 0; padding: 0; border: 0; border-radius: 14px 14px 0 0;
+  background: var(--paper); color: var(--ink);
+  overflow-y: auto;
+}
+dialog.sheet[open] { animation: sheet-up 200ms ease-out; }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
+dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
+.sheet-body { padding: 16px var(--gutter) calc(20px + env(safe-area-inset-bottom)); }
+.sheet-body > h2 { font-size: 17px; font-weight: 700; }
+.sheet-body > p { margin-top: 8px; }
+.sheet-body > h3 { display: flex; align-items: center; gap: 8px; margin: 16px 0 4px; font-size: 15px; }
+.sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sheet-head h2 { font-size: 17px; font-weight: 700; }
+.icon-button {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px;
+  margin: -6px -8px 0 0; border: 0; border-radius: 50%; background: none;
+}
+.search {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding: 0 12px;
+  border: 1px solid var(--ink-soft); border-radius: 8px;
+}
+.search input {
+  flex: 1; min-width: 0; padding: 11px 0; border: 0; background: none;
+  font-size: 16px;   /* 16px or more: phones don't zoom in on the box */
+}
+.search input:focus { outline: none; }
+.search:focus-within { outline: 3px solid var(--blue); outline-offset: 1px; }
+.suggestions { margin: 4px 0 0; padding: 0; list-style: none; }
+.suggestions li.small { padding: 8px 0; }
+.suggestion {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--line);
+  background: none; text-align: left; font-size: 15px;
+}
+.suggestion small { color: var(--ink-soft); font-size: 12.5px; }
+.suggestion > small { flex: none; }
+#near-result { margin-top: 10px; }
+.call {
+  display: flex; justify-content: space-between; gap: 10px;
+  margin-top: 8px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); text-decoration: none; font-size: 14px;
+}
+.call strong { color: var(--blue); white-space: nowrap; }
+.answer-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+
+/* --- Scan tab --- */
+.tab-title { padding: 18px var(--gutter) 4px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.scan-tab > .small { padding: 0 var(--gutter); }
+.scan-view {
+  position: relative; overflow: hidden;
+  margin: 12px var(--gutter) 0; aspect-ratio: 3 / 4; max-height: 64vh;
+  border-radius: var(--radius); background: #0c1620;
+}
+#scan-video { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan-start {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1;
+  padding: 8px 16px; border: 0; border-radius: 999px;
+  background: #ffffff; color: var(--navy); font-weight: 700; font-size: 14px;
+}
+.scan-result {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 14px; color: #ffffff; font-size: 14px;
+}
+.scan-result span { opacity: 0.9; margin-left: 6px; }
+.scan-bloom { background: var(--avoid); }
+.scan-clear { background: var(--low-block); }
+.scan-plain { background: rgba(22, 32, 42, 0.85); }
+.scan-note { margin: 12px var(--gutter) 0; }
+.scan-note:not(:empty) {
+  padding: 12px 14px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.scan-note p + p { margin-top: 8px; }
+
+/* --- More tab: the directory (decided Oct 21), one row per feature --- */
+.directory ul { margin: 0; padding: 0; list-style: none; }
+.directory button {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 10px 0; border: 0; border-top: 1px solid var(--line);
+  background: none; text-align: left;
+}
+.directory li:first-child button { border-top: 0; }
+.directory button > .i:first-child { color: var(--navy); }
+.directory button > .i:last-child { color: var(--ink-soft); }
+.directory span { flex: 1; min-width: 0; }
+.directory strong { display: block; font-size: 15px; font-weight: 600; }
+.directory small { display: block; font-size: 12.5px; color: var(--ink-soft); }
+.about h2 { margin: 18px 0 6px; }
+.about h2:first-child { margin-top: 0; }
+.about p { font-size: 14.5px; }
+.about p + p { margin-top: 8px; }
+.credits li { display: list-item; margin-left: 18px; list-style: disc; padding: 2px 0; }
+.placeholder { padding: 8px 10px; border: 1px dashed var(--ink-soft); border-radius: 8px; color: var(--ink-soft); }
+
+/* --- Laptop and wider: the map on the left (sticky), the answer on the
+   right, 1,100 px at most (decided Oct 19) --- */
+@media (min-width: 900px) {
+  .lake-tab {
+    display: grid; grid-template-columns: minmax(0, 1fr) 440px;
+    column-gap: 20px; row-gap: 12px; align-items: start;
+    padding: 20px var(--gutter) 0;
+  }
+  .lake-tab > * { grid-column: 2; margin: 0; }
+  .lake-tab > .sat-card {
+    grid-column: 1; grid-row: 1 / span 9;
+    position: sticky; top: 72px;
+  }
+  .lake-tab #map { height: calc(100vh - 290px); min-height: 420px; }
+  .now { border-radius: var(--radius); }
+  .row-wrap { border: 1px solid var(--line); border-radius: var(--radius); }
+  .tiles { padding-left: 14px; padding-right: 14px; }
+  .row-caption { padding-left: 14px; }
+  .footer { padding: 4px 0 0; }
+  .scan-tab, .more-tab { max-width: 640px; margin: 0 auto; }
+  .tabbar { padding-left: calc(50% - 280px); padding-right: calc(50% - 280px); }
 }
 
-/* The satellite legend on the map */
-.map-legend {
-  background: white;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 18px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-}
-
-.map-legend .swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 6px;
-  vertical-align: middle;
-  border: 1px solid #999;
-}
-
-/* A lake's card under the map (tap a lake pin): as wide as the map */
-#lake-card {
-  max-width: 720px;
-}
-
-/* "Lakes near you": a short list under the nearest Jordan Lake area */
-#near-lakes ul {
-  margin: 4px 0;
-  padding-left: 20px;
-}
-
-/* The note about the satellite image's southern edge, on the map */
-.lake-south-note {
-  max-width: 150px;
-}
-
-/* The camera view for the scan */
-#scan-video {
-  display: block;
-  width: 100%;
-  max-width: 480px;
-  margin: 8px 0;
-  border-radius: 8px;
-}
-
-/* The drinking-water intake marker: just the 💧, no box around it */
-.intake-icon {
-  font-size: 20px;
-  line-height: 24px;
-  text-align: center;
-  background: none;
-  border: none;
+/* No motion for people who ask their device for less */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

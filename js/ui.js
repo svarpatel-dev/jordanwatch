@@ -1,13 +1,10 @@
-// Everything that draws on the page.
+// Draws the Jordan Lake area cards ("Why" and "What to do"), the example
+// station picker, and the camera scan's results.
 // Takes results from the other files and shows them; does no data work itself.
 
-const RISK_LABELS = {
-  low: "🟢 Low Risk",
-  caution: "🟡 Caution",
-  high: "🔴 High Risk",
-  limited: "🔵 Limited Data Available",
-  "no-data": "⚪ No Data Available"
-};
+import { icon, TREND_ICONS } from "./icons.js";
+import { shortDate, leastAffectedText, VERDICT_NAMES } from "./advice.js";
+import { whyRowsHtml, todoHtml, reportHtml, stationBadge, toxinNoteHtml, cardHeadHtml } from "./cardparts.js";
 
 // How to show each reading, in display order. Readings a station
 // doesn't have are skipped.
@@ -34,68 +31,31 @@ const FREQUENCY_LABELS = {
   Weekly: "weekly estimate"
 };
 
-// Lake verdict labels (decided Oct 4: never "OK" or "Safe")
-const VERDICT_LABELS = {
-  avoid: "🔴 Avoid",
-  caution: "🟡 Caution",
-  low: "🟢 Low Risk"
-};
+// Jordan Lake's park rule for dogs (NC State Parks): on Low Risk days the
+// pets tag says this instead of the general advice
+const JORDAN_LOW_RISK_PETS = "Leashed only, and not on swim beaches (park rule)";
 
-// How bad an Avoid is (decided Oct 13), the same bands as the map legend
-const SEVERITY_LABELS = {
-  high: "high",
-  "very-high": "very high",
-  extreme: "extreme"
-};
-
-// What to do at each verdict (decided Oct 5; based on CDC, NC DHHS and
-// NC State Parks guidance)
-const ACTIVITIES = {
-  avoid: {
-    suggested: "Picnics, trails, activities away from the water",
-    notSuggested: "Swimming, wading, tubing, water skiing, boating or paddling, touching the water",
-    pets: "Keep pets away from the water and shoreline",
-    families: "Keep kids out of the water"
-  },
-  caution: {
-    suggested: "Boating, kayaking, paddleboarding, fishing, shore activities",
-    notSuggested: "Swimming or wading. Don't swallow lake water, and rinse off with tap water after any contact",
-    pets: "Keep pets out of the water",
-    families: "No swimming for kids today"
-  },
-  low: {
-    suggested: "Swimming at designated beaches, boating, fishing",
-    always: "Stay away from any scum or discolored water, and rinse off after swimming",
-    pets: "Leashed only, and not on swim beaches (park rule)",
-    families: "Low risk for families"
-  }
-};
-
-// Camera scan results in plain words (never "safe"; a screening aid)
+// Camera scan results in plain words (never "safe"; a screening aid), and
+// the color of the result strip: red for a possible bloom, green when no
+// bloom is visible, gray otherwise
 const SCAN_LABELS = {
-  bloom: "Possible algae bloom or scum",
-  vegetation: "Plants or other harmless vegetation",
-  clear_water: "No bloom visible",
-  not_water: "Point the camera at the water",
-  uncertain: "Uncertain: move closer or try another angle"
+  bloom: ["Possible algae bloom or scum", "scan-bloom"],
+  vegetation: ["Plants or other harmless vegetation", "scan-plain"],
+  clear_water: ["No bloom visible", "scan-clear"],
+  not_water: ["Point the camera at the water", "scan-plain"],
+  uncertain: ["Uncertain: move closer or try another angle", "scan-plain"]
 };
 
-// Where to report a bloom. Jordan Lake areas are in NC, so NC DEQ's online
-// form (checked Oct 11). Anywhere else, EPA's list of every state's bloom
-// program for now; a direct link for each state comes with the location step (Oct 13).
-const NC_REPORT = { url: "https://survey123.arcgis.com/share/deb256fcc1134bbc83b72c80109392f1", name: "NC DEQ" };
-const GENERAL_REPORT_URL = "https://www.epa.gov/habs/state-tribal-hab-programs-and-resources";
-
-// Trend between the last two satellite images (decided Oct 12). Plain text
-// arrows for now; real icons come in the Week 4 design pass.
-const TREND_LABELS = {
-  worse: "↑ getting worse",
-  better: "↓ getting better",
-  steady: "→ about the same"
+const TREND_WORDS = {
+  worse: "getting worse",
+  better: "getting better",
+  steady: "about the same"
 };
 
 // Extra line for areas without a recent satellite reading (decided Oct 5)
 const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
+
+// --- The example station picker (no place chosen) ---
 
 // Builds the dropdown's options from the STATIONS list, grouped by tier.
 export function fillStationPicker(stations) {
@@ -118,13 +78,10 @@ export function fillStationPicker(stations) {
 
 // Shown while a station's data is being fetched.
 export function showLoading(station) {
-  const statusEl = document.getElementById("status");
-  statusEl.textContent = `Loading ${station.name}…`;
+  document.getElementById("status").textContent = `Loading the latest readings from ${station.name}…`;
 }
 
 export function showResult(station, risk, readings) {
-  const statusEl = document.getElementById("status");
-
   // One line per reading this station actually has
   const readingLines = READING_DISPLAY
     .filter(r => readings[r.key])
@@ -139,118 +96,75 @@ export function showResult(station, risk, readings) {
     ? new Date(Math.max(...times)).toLocaleString()
     : null;
 
-  statusEl.innerHTML = `
-    <strong>${station.name}</strong> (USGS ${station.id})<br>
-    <strong>${RISK_LABELS[risk.level]}</strong><br>
-    ${risk.reason}
-    ${risk.note ? `<br><em>ℹ️ ${risk.note}</em>` : ""}
-    ${risk.flowStatus ? `<br>Flow is ${risk.flowStatus}.` : ""}
-    ${risk.isOutdated ? "<br><em>⚠️ Reading is 3–24h old</em>" : ""}
-    <br><br>
-    ${readingLines || "No recent readings from this station."}
-    ${latestTime ? `<br><br><small>Latest reading: ${latestTime}</small>` : ""}
+  document.getElementById("status").innerHTML = `
+    <p class="station-head"><strong>${station.name}</strong> ${stationBadge(risk.level)}</p>
+    <p class="small">USGS ${station.id}</p>
+    <p>${risk.reason}</p>
+    ${risk.note ? `<p class="small">${icon("info")} ${risk.note}</p>` : ""}
+    ${risk.flowStatus ? `<p>Flow is ${risk.flowStatus}.</p>` : ""}
+    ${risk.isOutdated ? `<p class="small">${icon("warning")} The reading is 3–24 hours old.</p>` : ""}
+    <p>${readingLines || "No recent readings from this station."}</p>
+    ${latestTime ? `<p class="small">Latest reading: ${latestTime}</p>` : ""}
   `;
 }
 
 // Shown when loading a station fails (bug 4).
 export function showError(station, message) {
-  const statusEl = document.getElementById("status");
-  statusEl.innerHTML = `
-    <strong>${station.name}</strong> (USGS ${station.id})<br>
-    ⚠️ Couldn't load data: ${message}<br>
-    Try again in a few minutes.
+  document.getElementById("status").innerHTML = `
+    <p><strong>${station.name}</strong> (USGS ${station.id})</p>
+    <p>${icon("warning")} Couldn't load data: ${message} Try again in a few minutes.</p>
   `;
 }
 
-// The Jordan Lake section: a summary line, then every area ranked best
-// first. Each area is a <details> box: tap its name to open its card.
-export function showLake(lake) {
-  const lakeEl = document.getElementById("lake");
+// --- A Jordan Lake area's cards ---
 
-  // How many areas got each verdict, e.g. { avoid: 8, caution: 2, low: 0 }
-  const counts = { avoid: 0, caution: 0, low: 0 };
-  for (const area of lake.areas) {
-    counts[area.level] += 1;
-  }
-
-  lakeEl.innerHTML = `
-    <p><strong>Today at Jordan Lake:</strong>
-      ${counts.avoid} Avoid · ${counts.caution} Caution · ${counts.low} Low Risk</p>
-    ${leastAffectedNote(lake.leastAffected)}
-    <h3>Best spots today</h3>
-    <p><small>Tap an area to see why and what to do.</small></p>
-    ${lake.ranked.map(area => areaCard(area, lake.leastAffected)).join("")}
-    ${intakeNote(lake.intake)}
-    <p><small>Satellite estimates from EPA CyAN, last checked
-      ${new Date(lake.checkedAt).toLocaleString()}. Not an official advisory.</small></p>
-  `;
-}
-
-// Shown at the top when every area is at Avoid (decided Oct 13): where it's
-// least bad, and that it's still shore activities only. Never suggests swimming.
-function leastAffectedNote(least) {
-  if (!least) return "";
-  return `
-    <p><strong>Every area is at Avoid today.</strong> Least affected:
-      ${least.name} (${verdictLabel(least)}${least.swimBeach ? ", swim beach" : ""}).
-      Shore activities only: no swimming or wading, and keep pets away from the water.</p>
-  `;
-}
-
-// One area's card: verdict, why, what to do, and where to go instead.
-// leastAffected is null unless every area is at Avoid.
-function areaCard(area, leastAffected) {
-  const activities = ACTIVITIES[area.level];
-  const reasons = area.reasons.map(r => `<li>${r.text}</li>`).join("");
-
+// The Why and What to do cards for one area. lake = computeLakeVerdicts()'s
+// whole result; reportRoutes = data/report_routes.json (or null)
+export function showAreaDetails(area, lake, reportRoutes) {
+  const verdict = VERDICT_NAMES[area.level];
   const image = area.imageDate
-    ? `Satellite image: ${area.imageDate} (${describeAge(area.imageAgeDays)}), ${FREQUENCY_LABELS[area.frequency] || "estimate"}`
+    ? `Satellite image ${shortDate(area.imageDate)} (${describeAge(area.imageAgeDays)}), ${FREQUENCY_LABELS[area.frequency] || "estimate"}`
     : "No satellite image";
 
-  return `
-    <details id="area-${area.id}">
-      <summary><strong>${area.name}</strong>: ${verdictLabel(area)}</summary>
-      <p><small>${area.swimBeach ? "🏖 Swim beach" : "No designated swim beach"} · ${image}</small></p>
-      ${trendLine(area.trend)}
-      ${area.borrowedFrom ? `<p><em>No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</em></p>` : ""}
-      <p><strong>Why:</strong></p>
-      <ul>${reasons}</ul>
-      <p>
-        <strong>Suggested:</strong> ${activities.suggested}<br>
-        ${activities.notSuggested ? `<strong>Not suggested:</strong> ${activities.notSuggested}<br>` : ""}
-        ${activities.always ? `<strong>Always:</strong> ${activities.always}<br>` : ""}
-        🐕 ${activities.pets} · 👨‍👩‍👧 ${activities.families}
-      </p>
-      ${area.noRecentSatellite ? `<p><em>${NO_RECENT_SATELLITE}</em></p>` : ""}
-      ${area.goInstead ? `<p>➡️ <strong>Go to ${area.goInstead.name} instead</strong> (${verdictLabel(area.goInstead)}${area.goInstead.swimBeach ? ", swim beach" : ""})</p>` : ""}
-      ${leastAffectedLine(area, leastAffected)}
-    </details>
+  // lake.js's reasons, one row each; "unavailable" ones are gray
+  const rows = area.reasons.map(reason => ({
+    source: reason.source,
+    level: reason.level,
+    raises: reason.raises === true || reason.source === "camera",
+    off: reason.unavailable === true,
+    headline: reason.headline,
+    text: reason.text
+  }));
+
+  document.getElementById("why").innerHTML = `
+    ${cardHeadHtml(`Why ${area.name} is at ${verdict}`, "why")}
+    <p class="small">${area.swimBeach ? "Swim beach" : "No designated swim beach"}. ${image}.</p>
+    ${area.borrowedFrom ? `<p class="small">No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</p>` : ""}
+    ${whyRowsHtml(rows)}
+    ${area.noRecentSatellite ? `<p class="small">${NO_RECENT_SATELLITE}</p>` : ""}
+    ${trendLine(area.trend)}
+    ${intakeNote(lake.intake)}
+    ${toxinNoteHtml()}
+    <p class="small">Satellite estimates from EPA CyAN (about 300 m pixels), last checked
+      ${new Date(lake.checkedAt).toLocaleString()}. Not an official advisory.</p>
+  `;
+
+  document.getElementById("todo").innerHTML = `
+    ${cardHeadHtml("What to do", "todo")}
+    ${todoHtml(area, area.level === "low" ? JORDAN_LOW_RISK_PETS : null)}
+    ${lake.leastAffected ? `<p class="note">${leastAffectedText(lake.leastAffected)}</p>` : ""}
+    ${reportHtml("NC", reportRoutes)}
   `;
 }
 
-// On each card when every area is at Avoid: the least affected area, or a
-// note that this is it
-function leastAffectedLine(area, least) {
-  if (!least) return "";
-  if (least.id === area.id) {
-    return `<p><strong>Least affected area today</strong>, but still at Avoid: shore activities only.</p>`;
-  }
-  return `<p>Least affected today: <strong>${least.name}</strong> (${verdictLabel(least)}), but every area is at Avoid: shore activities only.</p>`;
-}
-
-// The verdict label plus how bad an Avoid is, e.g. "Avoid: very high"
-function verdictLabel(item) {
-  const severity = item.severity ? `: ${SEVERITY_LABELS[item.severity]}` : "";
-  return `${VERDICT_LABELS[item.level]}${severity}`;
-}
-
-// "Trend since Oct 6: ↑ getting worse (210,000 → 602,560 cells/mL)"
+// "Trend since Oct 6: getting worse (210,000 → 602,560 cells/mL)"
 function trendLine(trend) {
   if (!trend) return "";
   const to = trend.toBelowDetection ? "below detection" : `${trend.toCells.toLocaleString()} cells/mL`;
   return `
-    <p><small>Trend since ${trend.sinceDate}: <strong>${TREND_LABELS[trend.direction]}</strong>
-      (${trend.fromCells.toLocaleString()} → ${to}). A change between two satellite images, not a forecast.</small></p>
+    <p class="small">${icon(TREND_ICONS[trend.direction])} Trend since ${shortDate(trend.sinceDate)}:
+      <strong>${TREND_WORDS[trend.direction]}</strong> (${trend.fromCells.toLocaleString()} → ${to}).
+      A change between two satellite images, not a forecast.</p>
   `;
 }
 
@@ -264,10 +178,9 @@ function intakeNote(intake) {
     : `about ${intake.cellsPerMl.toLocaleString()} cells/mL`;
 
   return `
-    <p><small>💧 Near the Cary/Apex drinking-water intake: ${amount}
-      (satellite image ${intake.imageDate}).
-      Context only: this water is treated before it reaches taps, so this is
-      not a tap-water rating.</small></p>
+    <p class="small">${icon("droplet")} Near the Cary/Apex drinking-water intake: ${amount}
+      (satellite image ${shortDate(intake.imageDate)}). Context only: this water is treated
+      before it reaches taps, so this is not a tap-water rating.</p>
   `;
 }
 
@@ -278,76 +191,77 @@ function describeAge(days) {
   return `${days} days old`;
 }
 
-// A message under the camera, e.g. "Starting the camera…"
+// Shown when the Jordan Lake data can't be loaded.
+export function showLakeError(message) {
+  document.getElementById("why").innerHTML = `
+    <h2>Jordan Lake</h2>
+    <p>${icon("warning")} Couldn't load Jordan Lake data: ${message} Try again in a few minutes.</p>
+  `;
+}
+
+// --- The camera scan ---
+
+// A message on the camera view, e.g. "Starting the camera…"
 export function showScanStatus(message) {
-  document.getElementById("scan-result").textContent = message;
+  const strip = document.getElementById("scan-result");
+  strip.className = "scan-result scan-plain";
+  strip.textContent = message;
 }
 
 // What the camera scan sees right now, with how confident the model is
 export function showScanResult(result) {
   const percent = Math.round(result.confidence * 100);
-  document.getElementById("scan-result").innerHTML = `
-    <strong>${SCAN_LABELS[result.label]}</strong> <small>(${percent}% confident)</small>
+  const [words, color] = SCAN_LABELS[result.label];
+  const strip = document.getElementById("scan-result");
+  strip.className = `scan-result ${color}`;
+  strip.innerHTML = `
+    <strong>${words}</strong> <span>${percent}% confident</span>
     ${result.label === "bloom" ? "<br>Stay out of the water and keep pets away." : ""}
-    <br><small>Screening aid, not a diagnosis. Not an official advisory.</small>
   `;
 }
 
-// Asked when the scan keeps seeing a bloom for a few seconds (decided Oct 11).
-// onAnswer(true) for Yes, onAnswer(false) for No.
+// Asked when the scan keeps seeing a bloom for a few seconds (decided Oct 11),
+// in a sheet. onAnswer(true) for Yes, onAnswer(false) for No (closing the
+// sheet counts as No).
 export function askAboutBloom(percent, onAnswer) {
-  const box = document.getElementById("scan-confirm");
-  box.innerHTML = `
-    <p><strong>The scan keeps seeing a possible bloom (${percent}% confident).</strong><br>
-      Does the water look green, scummy or like spilled paint?</p>
-    <button type="button" data-answer="yes">Yes</button>
-    <button type="button" data-answer="no">No</button>
-  `;
-  for (const button of box.querySelectorAll("button")) {
-    button.addEventListener("click", () => {
-      box.innerHTML = "";
-      onAnswer(button.dataset.answer === "yes");
-    });
-  }
+  const sheet = document.getElementById("sheet-bloom");
+  document.getElementById("bloom-percent").textContent = `${percent}%`;
+  let answered = false;
+  const answer = yes => {
+    if (answered) return;
+    answered = true;
+    sheet.close();
+    onAnswer(yes);
+  };
+  sheet.querySelector('[data-answer="yes"]').onclick = () => answer(true);
+  sheet.querySelector('[data-answer="no"]').onclick = () => answer(false);
+  sheet.onclose = () => answer(false);
+  sheet.showModal();
 }
 
-// After the user says Yes: what happened, plus the report link
-export function showBloomSaved(areaName) {
+// After the user says Yes: what happened, plus the report link (reportLink
+// = reportHtml() for the user's state)
+export function showBloomSaved(areaName, reportLink) {
   showScanNote(`Saved on this phone only: your scan now counts toward <strong>${areaName}</strong>'s
-    verdict for today (one level higher, up to Avoid). ${reportLink(NC_REPORT)}`);
+    verdict for today (one level higher, up to Avoid).`, reportLink);
 }
 
-export function showBloomNotNear() {
-  showScanNote(`You're not near a lake JordanWatch covers yet, so no verdict changed. ${reportLink(null)}`);
+export function showBloomNotNear(reportLink) {
+  showScanNote("You're not near a lake JordanWatch covers yet, so no verdict changed.", reportLink);
 }
 
-export function showBloomNoLocation(message) {
-  showScanNote(`Couldn't get your location (${message}), so no verdict changed. ${reportLink(null)}`);
+export function showBloomNoLocation(message, reportLink) {
+  showScanNote(`Couldn't get your location (${message}), so no verdict changed.`, reportLink);
 }
 
 export function clearScanNote() {
-  document.getElementById("scan-confirm").innerHTML = "";
+  document.getElementById("scan-note").innerHTML = "";
 }
 
-function showScanNote(html) {
-  document.getElementById("scan-confirm").innerHTML = `<p>${html}</p>`;
-}
-
-// The "report it" sentence: a specific agency if we know it, otherwise
-// general advice with EPA's page
-function reportLink(agency) {
-  const report = agency
-    ? `<a href="${agency.url}" target="_blank" rel="noopener">report it to ${agency.name}</a>`
-    : `report it to your state's environmental or health agency
-       (<a href="${GENERAL_REPORT_URL}" target="_blank" rel="noopener">EPA lists every state's program</a>)`;
-  return `If you see a bloom, ${report} so it can be checked. Stay out of the water and keep pets away.`;
-}
-
-// Shown when the Jordan Lake data can't be loaded.
-export function showLakeError(message) {
-  const lakeEl = document.getElementById("lake");
-  lakeEl.innerHTML = `
-    ⚠️ Couldn't load Jordan Lake data: ${message}<br>
-    Try again in a few minutes.
+function showScanNote(text, reportLink) {
+  document.getElementById("scan-note").innerHTML = `
+    <p>${text}</p>
+    <p>If you see a bloom, report it so it can be checked. Stay out of the water and keep pets away.</p>
+    ${reportLink}
   `;
 }

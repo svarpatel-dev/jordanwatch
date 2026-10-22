@@ -4,12 +4,17 @@
 // small for the satellite. About 7,000 pins, so Leaflet draws them all on
 // one <canvas> instead of 7,000 separate shapes (much faster on a phone).
 
-import { PIN_COLORS, AVOID_SEVERITY_COLORS } from "./map.js";
+import { PIN_COLORS } from "./map.js";
 import { JORDAN_LAKE_ID } from "./lakes.js";
-import { verdictLabel, escapeHtml } from "./lakecard.js";
+import { verdictLabel, escapeHtml } from "./advice.js";
 
-// The same gray as the satellite's blind spots on Jordan Lake
-const NO_READING_COLOR = "#8a8a8a";
+// The design's gray for "no data" (--nodata in styles.css)
+const NO_READING_COLOR = "#6b7680";
+// Lakes with no recent reading get a smaller, lighter pin (decided Oct 19),
+// so the lakes WITH a verdict stand out: this share of a verdict pin's size,
+// in a light gray
+const NO_READING_SIZE = 0.6;
+const NO_READING_FILL = "#b9c1c8";
 
 // Pins grow as the map zooms in: [from this zoom level, radius in pixels,
 // white border width]
@@ -51,11 +56,11 @@ export function showLakePins(map, lakes, onOpenLake) {
   }
   L.layerGroup(pins).addTo(map);
 
+  // Zooming changes every pin's size (each keeps its own style)
   map.on("zoomend", () => {
     const newSize = pinSize(map.getZoom());
-    for (const pin of pins) {
-      pin.setRadius(newSize.radius);
-      pin.setStyle({ weight: newSize.weight });
+    for (const lake of lakes) {
+      pinsById.get(lake.id)?.setStyle(pinStyle(lake.verdict, newSize));
     }
   });
 
@@ -71,17 +76,19 @@ export function updateLakePin(lake) {
   pin.setTooltipContent(`${escapeHtml(lake.name)} (${lake.state}): ${verdictLabel(lake.verdict)}`);
 }
 
-// Verdict colors like the Jordan Lake pins (darker reds for worse Avoid).
-// A lake too small for the satellite gets a hollow gray ring.
+// Verdict colors like the Jordan Lake pins (one red for every Avoid).
+// No recent reading: a smaller, lighter gray dot. A lake too small for the
+// satellite gets a small hollow gray ring.
 function pinStyle(verdict, size) {
   const shape = { radius: size.radius, weight: size.weight };
+  const small = { radius: size.radius * NO_READING_SIZE, weight: size.weight };
   if (verdict.status === "too-small") {
-    return { ...shape, color: NO_READING_COLOR, fillColor: "#ffffff", fillOpacity: 0.7 };
+    return { ...small, color: NO_READING_COLOR, fillColor: "#ffffff", fillOpacity: 0.7 };
   }
-  const fill = verdict.level
-    ? AVOID_SEVERITY_COLORS[verdict.severity] ?? PIN_COLORS[verdict.level]
-    : NO_READING_COLOR;
-  return { ...shape, color: "#ffffff", fillColor: fill, fillOpacity: 0.9 };
+  if (!verdict.level) {
+    return { ...small, color: "#ffffff", fillColor: NO_READING_FILL, fillOpacity: 0.8 };
+  }
+  return { ...shape, color: "#ffffff", fillColor: PIN_COLORS[verdict.level], fillOpacity: 0.95 };
 }
 
 // { radius, weight } for this zoom level
@@ -96,10 +103,10 @@ function pinSize(zoom) {
 // A note on the map whenever it shows the south, where EPA's image has no
 // satellite colors (the per-lake check still gives those lakes verdicts)
 function addSouthNote(L, map) {
-  // Top right, under the satellite switch (the legend fills the bottom left)
-  const note = L.control({ position: "topright" });
+  // A small strip at the bottom left (the legend is above the map)
+  const note = L.control({ position: "bottomleft" });
   note.onAdd = () => {
-    const box = L.DomUtil.create("div", "map-legend lake-south-note");
+    const box = L.DomUtil.create("div", "map-note");
     box.textContent = "Satellite colors aren't available south of about 30°N; lake pins still show verdicts.";
     return box;
   };

@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <title>JordanWatch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f2b46">
+
+  <!-- Public Sans: the U.S. government's typeface (decided Oct 19), from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap">
 
   <!-- Leaflet: the map library (styles + code), from the cdnjs CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -15,66 +21,355 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <h1>JordanWatch</h1>
+  <!-- The header (decided Oct 19): the name, the chosen place (tap it to
+       change it) and the If exposed button -->
+  <header class="topbar">
+    <span class="brand">JordanWatch</span>
+    <button type="button" id="place-button" class="place-button" aria-haspopup="dialog">
+      <svg class="i" aria-hidden="true"><use href="#i-locate"></use></svg>
+      <span id="place-name">Choose a place</span>
+    </button>
+    <button type="button" id="exposed-button" class="exposed-button" aria-haspopup="dialog">
+      <svg class="i" aria-hidden="true"><use href="#i-warning"></use></svg>
+      If exposed
+    </button>
+  </header>
+
+  <main>
+    <!-- Lake tab: the answer first, then the map and why (main.js fills it) -->
+    <section id="tab-lake" class="tab lake-tab" aria-label="Lake">
+      <!-- First visit only (decided Oct 21): the app in 3 steps, until the
+           user closes it (welcome.js) -->
+      <section id="welcome" class="welcome" aria-labelledby="welcome-title" hidden>
+        <div class="welcome-head">
+          <h2 id="welcome-title">How JordanWatch works</h2>
+          <button type="button" id="welcome-close" class="icon-button" aria-label="Close these tips">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+        <ol class="welcome-steps">
+          <li><button type="button" data-step="search"><span class="step-number">1</span>Search a ZIP or lake</button></li>
+          <li><button type="button" data-step="why"><span class="step-number">2</span>See its rating and why</button></li>
+          <li><button type="button" data-step="scan"><span class="step-number">3</span>Scan the water with your camera</button></li>
+        </ol>
+      </section>
+
+      <div id="now" class="now now-none" aria-live="polite">
+        <p class="now-line">Loading today's ratings… Then tap Choose a place at the top to see the lakes near you.</p>
+      </div>
+
+      <!-- Every section on this tab has a plain heading and one line saying
+           what it does (decided Oct 21) -->
+      <section class="row-wrap" aria-labelledby="row-title">
+        <h2 id="row-title" class="row-title">Loading the ratings…</h2>
+        <p id="row-caption" class="row-caption">Each tile is one place's rating. Tap one to see it above.</p>
+        <div id="tiles" class="tiles"></div>
+      </section>
+
+      <section id="sat-card" class="card sat-card" aria-labelledby="sat-title">
+        <div class="card-head">
+          <h2 id="sat-title">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-satellite"></use></svg>
+            Satellite map
+          </h2>
+          <button type="button" id="full-map-button" class="link-button">Full map</button>
+        </div>
+        <p class="card-desc sat-desc">Bloom colors seen by satellite in the past week, and a pin for each
+          rating. Tap a pin for details.</p>
+        <!-- The legend: a thin strip above the map (decided Oct 19) -->
+        <div class="legend-strip">
+          <span class="legend-unit">Cells/mL</span>
+          <div class="legend-bands" aria-hidden="true">
+            <i style="background:#fff1a8"></i><i style="background:#fec44f"></i><i style="background:#fd8d3c"></i>
+            <i style="background:#f03b20"></i><i style="background:#bd0026"></i><i style="background:#54278f"></i>
+          </div>
+          <p class="legend-ticks">
+            <span style="left:16.7%">20k</span><span style="left:50%">100k</span><span style="left:83.3%">1M</span>
+          </p>
+          <label class="switch">
+            <input type="checkbox" id="satellite-switch" checked>
+            <span>Satellite<br><span id="legend-date"></span></span>
+          </label>
+        </div>
+        <div class="map-wrap">
+          <div id="map"></div>
+          <button type="button" id="locate-button" class="locate-button" aria-label="Show my location on the map">
+            <svg class="i i-lg" aria-hidden="true"><use href="#i-locate"></use></svg>
+          </button>
+          <!-- Only in the full map: the area or lake being looked at -->
+          <div id="map-sheet" class="map-sheet" hidden></div>
+        </div>
+        <p class="card-note">EPA CyAN satellite estimate in cells/mL: the newest bloom seen at each spot in
+          the past week. No color means clean water, clouds or no satellite pass. The 20k and 100k marks
+          are the WHO 1999/2003 guideline levels.</p>
+      </section>
+
+      <!-- Filled in by ui.js or lakecard.js once the data loads -->
+      <section id="why" class="card" aria-live="polite">
+        <h2>Why</h2>
+        <p class="card-desc">Every signal behind the rating, in plain words, with the numbers.</p>
+        <p class="small">The reasons show here once today's satellite data loads.</p>
+      </section>
+      <section id="todo" class="card">
+        <h2>What to do</h2>
+        <p class="card-desc">What's OK today for people, kids and dogs, and how to report a bloom.</p>
+        <p class="small">The advice shows here once the rating loads.</p>
+      </section>
+
+      <section id="near-lakes-card" class="card" aria-labelledby="near-lakes-title">
+        <h2 id="near-lakes-title">Lakes near Jordan Lake</h2>
+        <p class="card-desc">Ratings for the closest lakes. Tap one for details.</p>
+        <div id="near-lakes" class="tiles"></div>
+      </section>
+
+      <section id="stations-card" class="card" aria-labelledby="stations-title">
+        <h2 id="stations-title">Live stations: examples in North Carolina</h2>
+        <p class="card-desc">Live USGS water sensors, each judged by its own state's standards. Tap one
+          for its readings.</p>
+        <!-- Live stations near the chosen place (nearstations.js) -->
+        <div id="near-stations"></div>
+        <!-- With no place chosen: example stations around Jordan Lake and in
+             North Carolina (stations.js). Hidden once a place is chosen
+             (decided Oct 19: everything national, Jordan Lake as the default example). -->
+        <div id="station-picker-box">
+          <p class="small">Choose a place at the top to see the live stations near it.</p>
+          <label for="station-picker">Station</label>
+          <select id="station-picker"></select>
+          <div id="status" class="station-result">Pick a station above to see its live readings.</div>
+        </div>
+      </section>
+
+      <p id="lake-footer" class="footer"></p>
+    </section>
+
+    <!-- Scan tab: the camera (decided Oct 11) -->
+    <section id="tab-scan" class="tab scan-tab" aria-labelledby="scan-title" hidden>
+      <h1 id="scan-title" class="tab-title">Scan the water</h1>
+      <p class="small">Point your phone's camera at the water near the shore.
+        A screening aid, not a diagnosis.</p>
+      <div class="scan-view">
+        <video id="scan-video" playsinline muted hidden></video>
+        <button type="button" id="scan-start" class="scan-start">Start camera</button>
+        <p id="scan-result" class="scan-result scan-plain" aria-live="polite">Camera off. Tap Start camera,
+          then point your phone at the water near the shore.</p>
+      </div>
+      <div id="scan-note" class="scan-note"></div>
+    </section>
+
+    <!-- More tab: a directory of every feature (decided Oct 21), then About -->
+    <section id="tab-more" class="tab more-tab" aria-labelledby="more-title" hidden>
+      <h1 id="more-title" class="tab-title">More</h1>
+      <nav class="card directory" aria-labelledby="directory-title">
+        <h2 id="directory-title">Everything in JordanWatch</h2>
+        <p class="card-desc">Every feature, and where to find it.</p>
+        <ul>
+          <li><button type="button" data-go="stations">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-gauge"></use></svg>
+            <span><strong>Live stations</strong>
+              <small>Live USGS water sensors near your place, judged by your state's standards</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="how">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-satellite"></use></svg>
+            <span><strong>How it works</strong>
+              <small>How satellite, rain, lake level and wind become one rating</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="exposed">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-warning"></use></svg>
+            <span><strong>If exposed</strong>
+              <small>What to do if you, a child or a pet touched bloom water, with numbers to call</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="report">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-flag"></use></svg>
+            <span><strong>Report a bloom</strong>
+              <small>Send a bloom you saw to your state's agency (in the What to do card)</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="sources">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
+            <span><strong>Data sources</strong>
+              <small>Where every number comes from, and the credits</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="about">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-person"></use></svg>
+            <span><strong>About</strong>
+              <small>What JordanWatch is, and who made it</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+        </ul>
+      </nav>
+
+      <article class="card about">
+        <h2 id="about-app">About JordanWatch</h2>
+        <p>JordanWatch rates lakes Avoid, Caution or Low Risk for harmful algal blooms, so
+          swimmers, paddlers and dog owners can check before they go in the water. It was built
+          for Jordan Lake in North Carolina and works for about 7,000 lakes across the US that
+          EPA's satellites cover. It's free, needs no account, and has no ads.</p>
+
+        <h2 id="about-how">How it works</h2>
+        <p><strong>Satellite.</strong> EPA's CyAN project estimates cyanobacteria (the algae
+          behind harmful blooms) from satellite images, in cells per milliliter, with pixels
+          about 300 m wide. JordanWatch compares them with the World Health Organization's
+          1999/2003 guideline levels: under 20,000 cells/mL is Low Risk, 20,000 to 100,000 is
+          Caution, and over 100,000 is Avoid.</p>
+        <p><strong>Cells, not toxins.</strong> NC DHHS and EPA judge recreation by a toxin,
+          microcystin (8 µg/L), which needs a water test. Satellites can't measure toxins, so
+          JordanWatch uses WHO's cell-count levels as an early warning.</p>
+        <p><strong>Other signals.</strong> Heavy rain in the last 48 hours or a river running
+          higher than usual can wash bacteria into the water, so they can raise a verdict to
+          Caution. So can a lake well above its usual level. Light wind can pile floating algae
+          on the downwind shore, so beaches there go up one level.</p>
+        <p><strong>The worst signal wins.</strong> Each verdict is the worst of its signals, and
+          the Why card shows every one of them. Old or missing data never gives an all-clear:
+          a reading over a week old can keep a warning but can't give Low Risk.</p>
+        <p><strong>Camera scan.</strong> A model trained on photos of blooms, plants, clear
+          water and shorelines looks at what your camera sees. It's a screening aid, not a
+          diagnosis: it says Uncertain when it isn't sure, and a bloom you confirm near one of
+          Jordan Lake's areas raises that area's verdict, on your phone only.</p>
+        <p>Every verdict is worked out on your phone. Your exact location stays on it.</p>
+
+        <h2 id="about-me">About me</h2>
+        <!-- PLACEHOLDER: Svar writes this part (decided Oct 12).
+             Privacy: name + "high school student in North Carolina" + why;
+             no town, school, photo or contact details. -->
+        <p class="placeholder">[About me: written by Svar. Name, high school student in
+          North Carolina, and why I built JordanWatch.]</p>
+
+        <h2 id="about-sources">Data sources and credits</h2>
+        <ul class="plain-list credits">
+          <li>Satellite estimates: U.S. EPA Cyanobacteria Assessment Network (CyAN), with NASA, NOAA and USGS</li>
+          <li>Rain, river flow, lake level and water stations: U.S. Geological Survey (USGS) Water Data</li>
+          <li>Wind: Open-Meteo</li>
+          <li>Map and beaches: © OpenStreetMap contributors, ODbL</li>
+          <li>ZIP code locations: U.S. Census Bureau, ZCTA Gazetteer</li>
+          <li>State water quality standards: U.S. EPA Criteria Search Tool and each state's regulations</li>
+          <li>What to do after contact: CDC, Harmful Algal Blooms and Your Health</li>
+          <li>Bloom report routes: each state's environmental or health agency, and EPA</li>
+          <li>Camera training photos: Algal Blooms Sweden (Zenodo, CC BY 4.0), iNaturalist,
+            Wikimedia Commons, Open Images, Florida DEP Algal Bloom Site Visits (Florida public
+            records) and USGS, credited photo by photo in the project's files</li>
+          <li>Code libraries: Leaflet, TensorFlow.js. Typeface: Public Sans</li>
+        </ul>
+
+        <h2>Not an official advisory</h2>
+        <p>JordanWatch gives estimates from public data, not lab tests. Satellites can't measure
+          toxins, can't see narrow arms or the shoreline, and can be days old. Always follow
+          posted signs and your state's advisories, and stay out of water that looks green,
+          scummy or like spilled paint.</p>
+      </article>
+    </section>
+  </main>
+
+  <!-- The tab bar (decided Oct 19): Lake · Scan (raised) · More -->
+  <nav class="tabbar" aria-label="Main">
+    <button type="button" data-tab="lake" aria-current="page">
+      <svg class="i i-lg" aria-hidden="true"><use href="#i-waves"></use></svg>
+      Lake
+    </button>
+    <button type="button" data-tab="scan" class="tab-scan">
+      <span class="scan-circle"><svg class="i i-lg" aria-hidden="true"><use href="#i-camera"></use></svg></span>
+      Scan
+    </button>
+    <button type="button" data-tab="more">
+      <svg class="i i-lg" aria-hidden="true"><use href="#i-menu"></use></svg>
+      More
+    </button>
+  </nav>
+
+  <!-- The location sheet (decided Oct 20): one box for a ZIP code or a lake name -->
+  <dialog id="sheet-place" class="sheet" aria-labelledby="place-title">
+    <div class="sheet-body">
+      <div class="sheet-head">
+        <h2 id="place-title">Choose a place</h2>
+        <button type="button" class="icon-button" data-close aria-label="Close">
+          <svg class="i i-md" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </div>
+      <form id="search-form" class="search" role="search">
+        <label for="search-input" class="visually-hidden">ZIP code or lake name</label>
+        <svg class="i i-md" aria-hidden="true"><use href="#i-search"></use></svg>
+        <input id="search-input" type="search" placeholder="ZIP code or lake name" autocomplete="off" enterkeyhint="search">
+      </form>
+      <ul id="suggestions" class="suggestions" aria-live="polite">
+        <li class="small">Type a 5-digit ZIP code or part of a lake's name, or use your location.</li>
+      </ul>
+      <button type="button" id="near-gps" class="button-line">
+        <svg class="i" aria-hidden="true"><use href="#i-locate"></use></svg>
+        Use my location
+      </button>
+      <button type="button" id="near-clear" class="button-line" hidden>Clear my place</button>
+      <p id="near-result" class="small" aria-live="polite"></p>
+      <p class="small">Your exact location stays on this phone.</p>
+    </div>
+  </dialog>
 
   <!-- What to do after contact with a bloom (decided Oct 3; wording from
        the CDC's "Harmful Algal Blooms and Your Health" page, checked Oct 11) -->
-  <details id="if-exposed">
-    <summary><strong>If you, a child or a pet went in the water</strong></summary>
-    <p><strong>People:</strong> rinse off with tap water right away. If you feel sick,
-      contact a healthcare provider or Poison Control: <a href="tel:18002221222">1-800-222-1222</a>.</p>
-    <p><strong>Pets:</strong> rinse them with tap water right away, before they lick their fur.
-      If they seem sick, call a veterinarian immediately. Animal poison lines (they charge a fee):
-      ASPCA <a href="tel:18884264435">1-888-426-4435</a> ·
-      Pet Poison Helpline <a href="tel:18557647661">1-855-764-7661</a>.</p>
-    <p><small>From the CDC's
-      <a href="https://www.cdc.gov/harmful-algal-blooms/about/index.html" target="_blank" rel="noopener">Harmful Algal Blooms and Your Health</a>.
-      Not medical advice.</small></p>
-  </details>
+  <dialog id="sheet-exposed" class="sheet" aria-labelledby="exposed-title">
+    <div class="sheet-body">
+      <div class="sheet-head">
+        <h2 id="exposed-title">If you, a child or a pet went in the water</h2>
+        <button type="button" class="icon-button" data-close aria-label="Close">
+          <svg class="i i-md" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </div>
+      <h3><svg class="i" aria-hidden="true"><use href="#i-family"></use></svg> People</h3>
+      <p>Rinse off with tap water right away. If you feel sick, contact a healthcare provider
+        or Poison Control.</p>
+      <a class="call" href="tel:18002221222">Poison Control <strong>1-800-222-1222</strong></a>
+      <h3><svg class="i" aria-hidden="true"><use href="#i-paw"></use></svg> Pets</h3>
+      <p>Rinse them with tap water right away, before they lick their fur. If they seem sick,
+        call a veterinarian immediately. Animal poison lines charge a fee.</p>
+      <a class="call" href="tel:18884264435">ASPCA Animal Poison Control <strong>1-888-426-4435</strong></a>
+      <a class="call" href="tel:18557647661">Pet Poison Helpline <strong>1-855-764-7661</strong></a>
+      <p class="small">From the CDC's
+        <a href="https://www.cdc.gov/harmful-algal-blooms/about/index.html" target="_blank" rel="noopener">Harmful Algal Blooms and Your Health</a>.
+        Not medical advice.</p>
+    </div>
+  </dialog>
 
-  <!-- See what's near you (decided Oct 10-11): GPS is asked for only after
-       a tap, or the user types a ZIP code. Works without either. -->
-  <section id="near-you">
-    <strong>See what's near you</strong><br>
-    <button id="near-gps" type="button">Use my location</button>
-    <form id="near-zip-form">
-      <label for="near-zip">or ZIP code:</label>
-      <input id="near-zip" type="text" inputmode="numeric" maxlength="5" size="6" autocomplete="postal-code">
-      <button type="submit">Show</button>
-    </form>
-    <button id="near-clear" type="button" hidden>Clear</button>
-    <br><small>Your exact location stays on this phone.</small>
-    <div id="near-result"></div>
-    <div id="near-lakes"></div>
-  </section>
+  <!-- The camera's question when it keeps seeing a bloom (decided Oct 11) -->
+  <dialog id="sheet-bloom" class="sheet" aria-labelledby="bloom-title">
+    <div class="sheet-body">
+      <h2 id="bloom-title">The scan keeps seeing a possible bloom (<span id="bloom-percent"></span> confident)</h2>
+      <p>Does the water look green, scummy or like spilled paint?</p>
+      <div class="answer-buttons">
+        <button type="button" class="button-solid" data-answer="yes">Yes</button>
+        <button type="button" class="button-line" data-answer="no">No</button>
+      </div>
+    </div>
+  </dialog>
 
-  <!-- Changes with the place or lake the user picks (main.js) -->
-  <h2 id="map-heading">Jordan Lake</h2>
-  <div id="map"></div>
-  <div id="lake-card"></div>
-  <div id="lake">Loading Jordan Lake data…</div>
-
-  <h2>Scan the water</h2>
-  <p><small>Point your phone's camera at the water near the shore. A screening aid, not a diagnosis.</small></p>
-  <button id="scan-start" type="button">Start camera</button>
-  <video id="scan-video" playsinline muted hidden></video>
-  <p id="scan-result"></p>
-  <div id="scan-confirm"></div>
-
-  <h2>Stations</h2>
-  <!-- Live stations near the place chosen in "See what's near you" (drawn by
-       nearstations.js); empty until a place is chosen -->
-  <div id="near-stations"></div>
-
-  <!-- With no place chosen: example stations around Jordan Lake and in North
-       Carolina (stations.js). Hidden once a place is chosen (decided Oct 19:
-       everything national, Jordan Lake as the default example). -->
-  <div id="station-picker-box">
-    <p><small>Example stations in North Carolina. Choose a place above to see the live stations near it.</small></p>
-    <label for="station-picker">Station:</label>
-    <select id="station-picker"></select>
-    <p id="status">Nothing happening yet.</p>
-  </div>
+  <!-- The icon sprite (decided Oct 19): every icon is drawn once here and
+       used with <use href="#i-name">. 24 x 24 line icons, 2 px strokes. -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-waves" viewBox="0 0 24 24"><path d="M3 10c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0M3 16c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/></symbol>
+    <symbol id="i-paw" viewBox="0 0 24 24"><circle cx="8" cy="6.5" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="4.5" cy="11.5" r="1.7"/><circle cx="19.5" cy="11.5" r="1.7"/><path d="M12 11c-3 0-5 3.2-5 5.7 0 1.9 1.4 2.8 2.6 2.8h4.8c1.2 0 2.6-.9 2.6-2.8 0-2.5-2-5.7-5-5.7z"/></symbol>
+    <symbol id="i-family" viewBox="0 0 24 24"><circle cx="8.5" cy="5.5" r="2.5"/><circle cx="17" cy="9" r="2"/><path d="M4.5 21v-6.5a4 4 0 0 1 8 0V21M14 21v-5a3 3 0 0 1 6 0v5"/></symbol>
+    <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 3c-3 4-6 7.5-6 11a6 6 0 0 0 12 0c0-3.5-3-7-6-11z"/></symbol>
+    <symbol id="i-satellite" viewBox="0 0 24 24"><path d="M12 9l3 3-3 3-3-3z"/><path d="M7 4l3 3-3 3-3-3zM17 14l3 3-3 3-3-3z"/><path d="M8.5 8.5l2 2M13.5 13.5l2 2"/><path d="M15 5.5a4.5 4.5 0 0 1 3.5 3.5"/></symbol>
+    <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 14.5a4 4 0 0 1 .4-8 5 5 0 0 1 9.4 1.7A3.3 3.3 0 0 1 17 14.5z"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M7 3v13M7 6h3M7 9.5h4.5M7 13h3"/><path d="M3 19.5c2-1.3 4-1.3 6 0s4 1.3 6 0 4-1.3 6 0"/></symbol>
+    <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 8h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 18h7"/></symbol>
+    <symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-6M14 9h6v6"/></symbol>
+    <symbol id="i-trend-flat" viewBox="0 0 24 24"><path d="M4 12h16M15 7l5 5-5 5"/></symbol>
+    <symbol id="i-trend-down" viewBox="0 0 24 24"><path d="M4 7l6 6 4-4 6 6M14 15h6V9"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5v.01"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4.5 2 4.5H5"/></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></symbol>
+  </svg>
 
   <script type="module" src="js/main.js"></script>
 </body>
