@@ -4,8 +4,9 @@
 // Rules decided Oct 3–5 (see the project notes: Key decisions → Risk engine);
 // rule B and "least affected" decided Oct 13, built Oct 15. Three WHO levels
 // only, with no stratification within Avoid (decided Oct 21, after NC DHHS's
-// feedback). Each signal has a short plain headline for the Why card and
-// the exact numbers as its text (decided Oct 21).
+// feedback). Each signal has a short plain headline for the Why card, one
+// short key value for its small card (e.g. "217k cells/mL") and the exact
+// numbers as its text (decided Oct 21).
 
 // Verdict levels from best to worst. A higher position means worse.
 const LEVELS = ["low", "caution", "avoid"];
@@ -62,7 +63,7 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
     const point = pointsById[area.cyanPointId];
     const borrowed = area.cyanPointId !== area.id;
 
-    // Each signal gives a level, a headline and a "why" sentence
+    // Each signal gives a level, a headline, a short value and a "why" sentence
     // (unavailable: true when its data couldn't load, so the Why card shows
     // it in gray)
     const signals = [
@@ -145,11 +146,11 @@ function satelliteSignal(point, borrowed) {
   // No reading, or too old to use: Caution, never Low Risk
   if (!point || point.status !== "ok") {
     return { source: "satellite", level: "caution", noRecentSatellite: true,
-             headline: "No recent satellite look", text: "No satellite reading is available here." };
+             headline: "No recent satellite look", value: "No reading", text: "No satellite reading is available here." };
   }
   if (point.imageAgeDays > IMAGE_MAX_DAYS) {
     return { source: "satellite", level: "caution", noRecentSatellite: true,
-             headline: "No recent satellite look",
+             headline: "No recent satellite look", value: `${point.imageAgeDays} days old`,
              text: `No recent satellite data (the latest image is ${point.imageAgeDays} days old).` };
   }
 
@@ -159,6 +160,8 @@ function satelliteSignal(point, borrowed) {
   const amount = point.belowDetection
     ? `${prefix}below detection (under about 6,500 cells/mL)`
     : `${prefix}about ${cells.toLocaleString()} cells/mL (average of the nearby pixels)`;
+  // The card's key value: "217k cells/mL" or "Below detection"
+  const value = point.belowDetection ? "Below detection" : `${compactCells(cells)} cells/mL`;
   let level;
   let headline;
   let text;
@@ -196,7 +199,7 @@ function satelliteSignal(point, borrowed) {
     text += ` But the image is ${point.imageAgeDays} days old, so low levels can't be confirmed.`;
   }
 
-  return { source: "satellite", level, noRecentSatellite: false, headline, text };
+  return { source: "satellite", level, noRecentSatellite: false, headline, value, text };
 }
 
 // --- Least affected area, when every area is at Avoid (decided Oct 13) ---
@@ -242,16 +245,16 @@ function satelliteTrend(point) {
 function lakeLevelSignal(lakeLevel) {
   if (!lakeLevel) {
     return { source: "lake-level", level: null, unavailable: true,
-             headline: "Couldn't load the lake level", text: "Lake level is unavailable right now." };
+             headline: "Couldn't load the lake level", value: "Not available", text: "Lake level is unavailable right now." };
   }
 
   const feet = lakeLevel.value.toFixed(1);
   if (lakeLevel.value >= HIGH_WATER_FT) {
-    return { source: "lake-level", level: "caution", headline: "High water",
+    return { source: "lake-level", level: "caution", headline: "High water", value: `${feet} ft`,
              text: `High water: the lake is at ${feet} ft (normal: ${NORMAL_POOL_FT} ft). Beaches may be closed; check NC State Parks.` };
   }
   const headline = lakeLevel.value < NORMAL_POOL_FT - 1 ? "Lake level a little low" : "Lake level normal";
-  return { source: "lake-level", level: "low", headline,
+  return { source: "lake-level", level: "low", headline, value: `${feet} ft`,
            text: `Lake level ${feet} ft (normal: ${NORMAL_POOL_FT} ft).` };
 }
 
@@ -264,7 +267,7 @@ function runoffSignal(runoff) {
 
   if (rain === null && (flow === null || normal === null)) {
     return { source: "runoff", level: null, unavailable: true,
-             headline: "Couldn't load rain and river data", text: "Rain and river data are unavailable right now." };
+             headline: "Couldn't load rain and river data", value: "Not available", text: "Rain and river data are unavailable right now." };
   }
 
   const heavyRain = rain !== null && rain >= HEAVY_RAIN_IN;
@@ -280,21 +283,30 @@ function runoffSignal(runoff) {
     facts.push(`Haw River at ${Math.round(flow).toLocaleString()} cubic ft/sec, ${compared} its usual range for this date`);
   }
 
+  // The card's key value: whichever part sets the level (high river flow
+  // without heavy rain shows the flow), else the rain if there's a reading
+  const value = highFlow && !heavyRain ? flowValue(flow)
+    : rain !== null ? rainValue(rain) : flowValue(flow);
+
   if (heavyRain || highFlow) {
     const headline = heavyRain ? "Heavy rain recently" : "River running high after rain";
     const why = heavyRain ? "Heavy rain recently" : "The Haw River is running high after rain upstream";
-    return { source: "runoff", level: "caution", headline,
+    return { source: "runoff", level: "caution", headline, value,
              text: `${why}: wait 48 hours before swimming (${facts.join("; ")}). Storm runoff can carry bacteria into the lake.` };
   }
-  return { source: "runoff", level: "low", headline: "No heavy rain recently",
+  return { source: "runoff", level: "low", headline: "No heavy rain recently", value,
            text: `${facts.join("; ")}.` };
 }
 
 // --- Wind (decided Oct 5) ---
 function windSignal(area, point, wind) {
-  const noEffect = (headline, text) => ({ source: "wind", level: null, raises: false, headline, text });
-
-  if (!wind) return { ...noEffect("Couldn't load wind", "Wind data is unavailable right now."), unavailable: true };
+  if (!wind) {
+    return { source: "wind", level: null, raises: false, unavailable: true,
+             headline: "Couldn't load wind", value: "Not available", text: "Wind data is unavailable right now." };
+  }
+  // Every wind row's key value: "6 mph NW"
+  const value = windValue(wind);
+  const noEffect = (headline, text) => ({ source: "wind", level: null, raises: false, headline, value, text });
 
   const speed = mphText(wind.speedMs);
   const from = compassName(wind.fromDeg);
@@ -324,7 +336,7 @@ function windSignal(area, point, wind) {
     return noEffect("Light wind toward this shore, little algae", `Wind: light (${speed}) from the ${from}, toward this shore, but the average algae level here is low.`);
   }
 
-  return { source: "wind", level: null, raises: true, headline: "Light wind toward this shore",
+  return { source: "wind", level: null, raises: true, headline: "Light wind toward this shore", value,
            text: `Light wind (${speed}) from the ${from} is likely pushing floating algae toward this shore.` };
 }
 
@@ -333,7 +345,7 @@ function windSignal(area, point, wind) {
 function scanSignal(area, scans) {
   const scan = scans.find(s => s.areaId === area.id);
   if (!scan) return null;
-  return { source: "camera", level: null, headline: "Your scan suggested a bloom",
+  return { source: "camera", level: null, headline: "Your scan suggested a bloom", value: `${scan.percent}% confident`,
            text: `Your camera scan at ${scan.time} suggested a possible bloom (${scan.percent}% confident; unconfirmed, shown only on this phone).` };
 }
 
@@ -369,6 +381,32 @@ export function angleBetween(a, b) {
 // 2.8 m/s → "6 mph" (whole miles per hour are plenty for wind)
 export function mphText(metersPerSecond) {
   return `${Math.round(metersPerSecond * MPH_PER_MS)} mph`;
+}
+
+// The short values on the Why card's small cards (decided Oct 21), kept
+// under about 18 characters. lakesignals.js uses them too.
+
+// 229,312 → "229k", 1,250,000 → "1.3M", 640 → "640" (like the tiles)
+export function compactCells(cells) {
+  if (cells < 1000) return String(cells);
+  if (cells < 1000000) return `${Math.round(cells / 1000)}k`;
+  return `${(cells / 1000000).toFixed(1)}M`;
+}
+
+// 0.02 → "0.02 in / 48 h" (rain in the last 48 hours)
+export function rainValue(inches) {
+  return `${inches.toFixed(2)} in / 48 h`;
+}
+
+// 1234.5 → "1,235 cu ft/s" (river flow), or "Not available" without one
+export function flowValue(cfs) {
+  return cfs === null ? "Not available" : `${Math.round(cfs).toLocaleString()} cu ft/s`;
+}
+
+// { speedMs: 2.8, fromDeg: 315 } → "6 mph NW" (the direction it blows from)
+export function windValue(wind) {
+  const short = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return `${mphText(wind.speedMs)} ${short[Math.round(wind.fromDeg / 45) % 8]}`;
 }
 
 // 0° → "north", 90° → "east", 225° → "southwest"

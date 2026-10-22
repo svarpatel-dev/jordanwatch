@@ -2,13 +2,13 @@
 // place the user chose, with its verdict and the state standards it was
 // compared with. Only draws; nearby.js finds and judges the stations.
 
-import { stationBadge } from "./cardparts.js";
+import { stationBadge, metaChipsHtml, readingsGridHtml } from "./cardparts.js";
 import { icon } from "./icons.js";
 
 const TIER_NAMES = {
-  full: "Full data (DO + turbidity)",
-  partial: "Partial data (DO, no turbidity)",
-  limited: "Limited data (flow or lake level)"
+  full: "Full data",
+  partial: "Partial data",
+  limited: "Limited data"
 };
 
 // USGS site type codes in plain words
@@ -24,16 +24,6 @@ const SITE_TYPE_NAMES = {
   OC: "Ocean",
   "OC-CO": "Coastal ocean"
 };
-
-// How to show each reading, in display order (the same as ui.js)
-const READING_DISPLAY = [
-  { key: "tempC", label: "Temp", unit: "°C" },
-  { key: "doMgL", label: "DO", unit: " mg/L" },
-  { key: "ph", label: "pH", unit: "" },
-  { key: "turbidityFnu", label: "Turbidity", unit: " FNU" },
-  { key: "flowCfs", label: "Flow", unit: " cubic ft/sec" },
-  { key: "lakeLevelFt", label: "Lake level", unit: " ft above sea level" }
-];
 
 // The class of water every state's numbers are for (decided Oct 10): its
 // warm-water fish class, or its closest general one (listed under the list)
@@ -54,11 +44,11 @@ function box() {
 
 // While the two USGS requests run (the card's heading is in index.html)
 export function showStationsNearLoading() {
-  box().innerHTML = "<p>Looking for live USGS water stations nearby…</p>";
+  box().innerHTML = "<p>Finding live USGS stations nearby…</p>";
 }
 
 export function showStationsNearError(message) {
-  box().innerHTML = `<p>${icon("warning")} Couldn't load the stations near you: ${message} Try again in a few minutes.</p>`;
+  box().innerHTML = `<p>${icon("warning")} Couldn't load stations: ${message} Try again soon.</p>`;
 }
 
 // "Clear": the list goes away with the place
@@ -86,7 +76,7 @@ function stationsHtml(heading, result, where) {
   if (stations.length === 0) {
     return `
       ${title}
-      <p>No live water stations within about ${miles} miles of ${where}.</p>
+      <p>No live stations within ${miles} miles of ${where}.</p>
     `;
   }
 
@@ -96,8 +86,7 @@ function stationsHtml(heading, result, where) {
 
   return `
     ${title}
-    <p class="small">${count} within about ${miles} miles of ${where}, nearest first.
-      Tap a station to see its readings.</p>
+    <p class="small">${count} within ${miles} miles · nearest first</p>
     ${stationGroup("Water quality", quality)}
     ${stationGroup("Flow and lake level only (no rating)", flowOnly)}
     ${aboutStandards(quality)}
@@ -119,11 +108,15 @@ function stationGroup(title, stations) {
   `;
 }
 
-// One station: tap its name to open its readings and why
+// One station: tap its name to open its readings as a small grid, its
+// reason in one line, and the standards it was compared with one tap away
 function stationCard(station) {
   const risk = station.risk;
   const site = SITE_TYPE_NAMES[station.siteType] ?? "Surface water";
   const number = station.id.replace("USGS-", "");
+  const chips = [`USGS ${number}`, site, TIER_NAMES[station.tier], `Updated ${howLongAgo(latestTime(station.readings))} ago`];
+  if (risk.isOutdated) chips.push(`${icon("warning")} 3–24 hours old`);
+  const more = [risk.note, ...standardsLines(station)].filter(t => t);
 
   return `
     <details class="station">
@@ -132,43 +125,26 @@ function stationCard(station) {
         ${stationBadge(risk.level)}
         ${icon("chevron-right")}
       </summary>
-      <p class="small">USGS ${number}. ${site}. ${TIER_NAMES[station.tier]}.</p>
-      <p>${risk.reason}</p>
-      ${risk.note ? `<p class="small">${icon("info")} ${risk.note}</p>` : ""}
-      ${risk.isOutdated ? `<p class="small">${icon("warning")} The reading is 3–24 hours old.</p>` : ""}
-      <p>${readingLines(station.readings)}</p>
-      <p class="small">Latest reading: ${howLongAgo(latestTime(station.readings))} ago.</p>
-      ${standardsLines(station)}
+      ${metaChipsHtml(chips)}
+      ${readingsGridHtml(station.readings, readingAge)}
+      <p class="station-reason">${risk.reason}</p>
+      ${more.length > 0 ? `<details class="more"><summary>Standards used</summary>
+        <ul class="bullets">${more.map(t => `<li>${t}</li>`).join("")}</ul></details>` : ""}
     </details>
   `;
 }
 
-// One line per reading, with its age if it's a few hours old
-function readingLines(readings) {
-  return READING_DISPLAY
-    .filter(r => readings[r.key])
-    .map(r => {
-      const reading = readings[r.key];
-      const hours = (Date.now() - new Date(reading.timestamp).getTime()) / (1000 * 60 * 60);
-      const age = hours >= OLD_READING_HOURS ? ` (${howLongAgo(reading.timestamp)} old)` : "";
-      return `${r.label}: ${readingText(r, reading.value)}${age}`;
-    })
-    .join("<br>");
+// "3 hours old" under a value that's a few hours old, or nothing
+function readingAge(reading) {
+  const hours = (Date.now() - new Date(reading.timestamp).getTime()) / (1000 * 60 * 60);
+  return hours >= OLD_READING_HOURS ? `${howLongAgo(reading.timestamp)} old` : "";
 }
 
-// Near the coast the tide can push a river backward, and USGS then reports
-// the flow as a negative number: say so in words instead of "-850"
-function readingText(display, value) {
-  if (display.key === "flowCfs" && value < 0) {
-    return `${Math.abs(value)}${display.unit}, flowing upstream (pushed back by the tide)`;
-  }
-  return `${value}${display.unit}`;
-}
-
-// Which standards the station was compared with, and what couldn't be compared
+// Which standards the station was compared with, and what couldn't be
+// compared: a list of short lines (each one a bullet)
 function standardsLines(station) {
   const rules = station.rules;
-  if (!rules) return "";
+  if (!rules) return [];
 
   const state = rules.state ?? "this station's state";
   const lines = [];
@@ -203,7 +179,7 @@ function standardsLines(station) {
   if (rules.isTidal) {
     lines.push("Tidal (partly salty) water: freshwater standards may not fit exactly.");
   }
-  return `<p class="small">${lines.join(" ")}</p>`;
+  return lines;
 }
 
 // Under the list: which class of water each state's numbers are for
@@ -217,17 +193,21 @@ function aboutStandards(quality) {
   const lines = Object.values(rows).map(row => {
     const rougher = row.confidence === "high"
       ? ""
-      : " These numbers vary by water body, basin or season in this state, so the comparison is rougher.";
+      : " (numbers vary by water body or season here, so the comparison is rougher)";
     return `<strong>${row.name}:</strong> ${row.useClass}.${rougher}`;
   });
   if (lines.length === 0) return "";
 
   return `
-    <p class="small"><strong>About the standards.</strong> Each state's numbers for its warm-water
-      fish class, or its closest general one:<br>
-      ${lines.join("<br>")}<br>
-      A station's water may officially have a stricter or looser class. Caution is
-      JordanWatch's own early-warning band, not a state rule. Not an official advisory.</p>
+    <details class="more"><summary>About the standards</summary>
+      <ul class="bullets">
+        <li>Each state's warm-water fish class, or its closest general one</li>
+        ${lines.map(line => `<li>${line}</li>`).join("")}
+        <li>A station's official class may be stricter or looser</li>
+        <li>Caution is JordanWatch's own early-warning band, not a state rule</li>
+        <li>Not an official advisory</li>
+      </ul>
+    </details>
   `;
 }
 

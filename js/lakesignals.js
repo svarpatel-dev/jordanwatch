@@ -11,7 +11,7 @@
 // - missing data never lowers a verdict or gives an all-clear: each signal
 //   is used, "not available here" (with the reason), or "couldn't load right now"
 
-import { worstLevel, raiseOneLevel, angleBetween, compassName, mphText, HEAVY_RAIN_IN,
+import { worstLevel, raiseOneLevel, angleBetween, compassName, mphText, rainValue, flowValue, windValue, HEAVY_RAIN_IN,
          CALM_MS, SCUM_WIND_MAX_MS, ONSHORE_WINDOW_DEG } from "./lake.js";
 import { describeDistance } from "./nearyou.js";
 import { readableName } from "./nearstations.js";
@@ -25,7 +25,7 @@ const FEET_PER_METER = 3.28084;
 // extras = what lakeextras.js fetched. Returns the satellite verdict's
 // fields (level, status, source, reading, satelliteHeadline, reasons) with
 // the combined level, plus otherReasons (one row per extra signal for the
-// Why card: { source, level, status, raises, headline, text }), warnings,
+// Why card: { source, level, status, raises, headline, value, text }), warnings,
 // beaches, spot, goInstead and signals.
 export function combineLakeSignals(satellite, extras) {
   const runoff = runoffSignal(extras.rain, extras.flow, extras.bigLake);
@@ -87,35 +87,40 @@ function runoffSignal(rain, flow, bigLake) {
   // Neither part: not available here (with why), or couldn't load
   if (facts.length === 0) {
     if (rain.status === "need-place") {
-      return { level: null, headline: "Choose a place to check rain", text: "This lake is too big for one rain or river gauge: choose a place (See what's near you, at the top) to check the ones near you.",
+      return { level: null, headline: "Choose a place to check rain", value: "Lake too big", text: "This lake is too big for one rain or river gauge: choose a place (See what's near you, at the top) to check the ones near you.",
                use: use("rain and river flow", "not-here", "too big a lake for one gauge (choose a place)") };
     }
     if (rain.status === "none" && flow.status === "none") {
       const where = bigLake ? "the part of this lake closest to you" : "this lake";
-      return { level: null, headline: "No rain or river gauge nearby", text: `No USGS rain gauge within about 15 miles or river gauge within about 6 miles of ${where}.`,
+      return { level: null, headline: "No rain or river gauge nearby", value: "No gauge nearby", text: `No USGS rain gauge within about 15 miles or river gauge within about 6 miles of ${where}.`,
                use: use("rain and river flow", "not-here", "no USGS rain or river gauge close enough") };
     }
     if (rain.status === "failed" || flow.status === "failed") {
-      return { level: null, headline: "Couldn't load rain and river data", text: "Rain and river data couldn't load right now.", use: use("rain and river flow", "failed") };
+      return { level: null, headline: "Couldn't load rain and river data", value: "Not available", text: "Rain and river data couldn't load right now.", use: use("rain and river flow", "failed") };
     }
-    return { level: null, headline: "No usable rain or river reading", text: `${capitalize(missing.join("; "))}.`,
+    return { level: null, headline: "No usable rain or river reading", value: "No reading", text: `${capitalize(missing.join("; "))}.`,
              use: use("rain and river flow", "not-here", missing.join("; ")) };
   }
 
   const label = rain.status === "ok" && flow.status === "ok" ? "rain and river flow"
     : rain.status === "ok" ? "rain" : "river flow";
+  // The card's key value: whichever part sets the level (high river flow
+  // without heavy rain shows the flow), else the rain if there's a reading
+  const value = highFlow && !heavyRain ? flowValue(flow.cfs)
+    : rain.status === "ok" ? rainValue(rain.inches) : flowValue(flow.cfs);
   const also = missing.length > 0 ? ` (${capitalize(missing.join("; "))}.)` : "";
   if (heavyRain || highFlow) {
     const warning = heavyRain ? "Heavy rain recently: wait 48 hours before swimming" : "The nearest river is running high after rain: wait 48 hours before swimming";
     return {
       level: "caution",
       headline: heavyRain ? "Heavy rain recently" : "River running high after rain",
+      value,
       warning: `${warning}.`,
       text: `${warning} (${facts.join("; ")}). Storm runoff can carry bacteria into the water: general guidance after storms, not a rule for this lake.${also}`,
       use: use(label, "used")
     };
   }
-  return { level: "low", headline: "No heavy rain recently", text: `${capitalize(facts.join("; "))}.${also}`, use: use(label, "used") };
+  return { level: "low", headline: "No heavy rain recently", value, text: `${capitalize(facts.join("; "))}.${also}`, use: use(label, "used") };
 }
 
 function rainMissing(rain) {
@@ -146,19 +151,19 @@ function flowCompared(flow) {
 function lakeLevelSignal(level) {
   const name = level.gauge ? gaugeName(level.gauge) : "";
   if (level.status === "none") {
-    return { level: null, headline: "No lake-level gauge", text: "No USGS lake-level gauge on this lake.", use: use("lake level", "not-here", "no USGS lake-level gauge on this lake") };
+    return { level: null, headline: "No lake-level gauge", value: "No gauge", text: "No USGS lake-level gauge on this lake.", use: use("lake level", "not-here", "no USGS lake-level gauge on this lake") };
   }
   if (level.status === "failed") {
-    return { level: null, headline: "Couldn't load the lake level", text: "Lake level couldn't load right now.", use: use("lake level", "failed") };
+    return { level: null, headline: "Couldn't load the lake level", value: "Not available", text: "Lake level couldn't load right now.", use: use("lake level", "failed") };
   }
   if (level.status === "no-recent") {
-    return { level: null, headline: "No recent lake-level reading", text: `The USGS lake-level gauge (${name}) has no reading in the last 2 days.`,
+    return { level: null, headline: "No recent lake-level reading", value: "No recent reading", text: `The USGS lake-level gauge (${name}) has no reading in the last 2 days.`,
              use: use("lake level", "not-here", "no recent reading at the lake-level gauge") };
   }
 
   const feet = `${level.feet.toFixed(1)} ft`;
   if (level.status === "no-normals") {
-    return { level: null, headline: "Lake level not compared", text: `Lake level ${feet} at the USGS gauge (${name}). USGS has no usual range for this date there, so it isn't compared.`,
+    return { level: null, headline: "Lake level not compared", value: feet, text: `Lake level ${feet} at the USGS gauge (${name}). USGS has no usual range for this date there, so it isn't compared.`,
              use: use("lake level", "not-here", "no usual range for this date at the lake-level gauge") };
   }
 
@@ -170,6 +175,7 @@ function lakeLevelSignal(level) {
     return {
       level: "caution",
       headline: "High water",
+      value: feet,
       warning: "High water: beaches may be closed; check local rules.",
       text: `High water: the lake is at ${feet} at the USGS gauge (${name}), higher than in 9 of 10 past years on this date (${usual}). Beaches may be closed; check local rules.`,
       use: use("lake level", "used")
@@ -177,7 +183,7 @@ function lakeLevelSignal(level) {
   }
   const compared = level.feet > p.p75 ? "above" : level.feet < p.p25 ? "below" : "within";
   const headline = { above: "Lake level a little high", below: "Lake level a little low", within: "Lake level normal" }[compared];
-  return { level: "low", headline, text: `Lake level ${feet} at the USGS gauge (${name}), ${compared} its usual range (${usual}).`,
+  return { level: "low", headline, value: feet, text: `Lake level ${feet} at the USGS gauge (${name}), ${compared} its usual range (${usual}).`,
            use: use("lake level", "used") };
 }
 
@@ -185,10 +191,13 @@ function lakeLevelSignal(level) {
 // pushes = light wind with algae to push. Then it's likely piling floating
 // algae on the downwind shore, and spots there go up one level.
 function windSignal(wind, satellite) {
-  const result = (headline, text, extra = {}) => ({ pushes: false, headline, text, use: use("wind", "used"), ...extra });
   if (wind === null) {
-    return { pushes: false, headline: "Couldn't load wind", text: "Wind couldn't load right now.", use: use("wind", "failed") };
+    return { pushes: false, headline: "Couldn't load wind", value: "Not available", text: "Wind couldn't load right now.", use: use("wind", "failed") };
   }
+
+  // Every wind row's key value: "6 mph NW"
+  const value = windValue(wind);
+  const result = (headline, text, extra = {}) => ({ pushes: false, headline, value, text, use: use("wind", "used"), ...extra });
 
   // The rules stay in m/s like lake.js; the text says mph (decided Oct 19)
   const speed = mphText(wind.speedMs);
@@ -235,8 +244,8 @@ function beachSpots(beaches, lakeLevel, wind) {
 }
 
 function beachesNote(beaches) {
-  if (beaches.status === "none") return "No beaches or swimming areas are mapped on this lake in OpenStreetMap.";
-  if (beaches.status === "not-looked-up") return "Beaches haven't been looked up for this lake yet.";
+  if (beaches.status === "none") return "No beaches mapped here on OpenStreetMap.";
+  if (beaches.status === "not-looked-up") return "Beaches not looked up yet for this lake.";
   if (beaches.status === "failed") return "Beaches couldn't load right now.";
   return null;
 }
@@ -277,10 +286,10 @@ function satelliteUse(satellite) {
 // One row of the Why card: which signal, the level it gives (null when it
 // gives none), whether it was used, not available here, or failed, whether
 // light wind is pushing algae toward a shore (raises spots there), and its
-// headline and sentence
+// headline, short value and sentence
 function whyRow(source, signal) {
   return { source, level: signal.level ?? null, status: signal.use.status,
-           raises: signal.pushes === true, headline: signal.headline, text: signal.text };
+           raises: signal.pushes === true, headline: signal.headline, value: signal.value, text: signal.text };
 }
 
 // One signal for the coverage line: status "used", "not-here" (with the
@@ -289,18 +298,13 @@ function use(label, status, why = null) {
   return { label, status, why };
 }
 
-// "Based on 3 of 5 signals: satellite, rain, lake level. Not available here:
-// no beaches mapped on OpenStreetMap. Couldn't load right now: wind."
-// A lake with no verdict: "No verdict; checked 2 of 5 signals: ..."
-export function coverageText(signals, hasVerdict = true) {
-  const used = signals.filter(s => s.status === "used").map(s => s.label);
-  const notHere = signals.filter(s => s.status === "not-here").map(s => s.why);
-  const failed = signals.filter(s => s.status === "failed").map(s => s.label);
-  const start = hasVerdict ? "Based on" : "No verdict; checked";
-  const parts = [`${start} ${used.length} of ${SIGNAL_COUNT} signals${used.length > 0 ? `: ${used.join(", ")}` : ""}.`];
-  if (notHere.length > 0) parts.push(`Not available here: ${notHere.join("; ")}.`);
-  if (failed.length > 0) parts.push(`Couldn't load right now: ${failed.join(", ")}.`);
-  return parts.join(" ");
+// The signals while the extras are still loading (or couldn't load): the
+// satellite as it is, the other four "loading" or "failed". The Why card
+// shows them as pills (cardparts.js coverageHtml).
+export function pendingSignals(satellite, failed) {
+  const status = failed ? "failed" : "loading";
+  const others = ["rain and river flow", "lake level", "wind", "beaches"].map(label => use(label, status));
+  return [satelliteUse(satellite), ...others];
 }
 
 // --- Helpers ---

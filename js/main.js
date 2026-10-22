@@ -33,7 +33,7 @@ import { searchLakes, isZip } from "./lakesearch.js";
 import { showTab, onTab, setUpTabs, openSheet, closeSheet, setUpSheets } from "./screens.js";
 import { setUpWelcome } from "./welcome.js";
 import { reportHtml } from "./cardparts.js";
-import { verdictLabel, escapeHtml } from "./advice.js";
+import { verdictLabel, escapeHtml, shortDateTime } from "./advice.js";
 import { fillStationPicker, showLoading, showResult, showError,
          showAreaDetails, showLakeError, showScanStatus, showScanResult,
          askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
@@ -59,7 +59,7 @@ const satCard = document.getElementById("sat-card");
 const fullMapButton = document.getElementById("full-map-button");
 
 // What the search sheet says before anything is typed
-const SEARCH_HINT = '<li class="small">Type a 5-digit ZIP code or part of a lake\'s name, or use your location.</li>';
+const SEARCH_HINT = '<li class="small">Type a 5-digit ZIP or a lake name.</li>';
 
 // Opening a lake zooms the map in at least this far on it
 const LAKE_ZOOM = 9;
@@ -141,7 +141,7 @@ async function loadLake() {
     showLakeVerdicts();
   } catch (error) {
     console.error("Failed to load Jordan Lake data", error);
-    showConditionsMessage(`Couldn't load Jordan Lake data: ${error.message} Try again in a few minutes.`);
+    showConditionsMessage(`Couldn't load Jordan Lake data: ${error.message} Try again soon.`);
     showLakeError(error.message);
   }
 }
@@ -162,7 +162,7 @@ function showLakeVerdicts() {
   }
   drawLakePins();
   document.getElementById("lake-footer").textContent =
-    `Satellite estimates from EPA CyAN, last checked ${new Date(latestLake.checkedAt).toLocaleString()}. Not an official advisory.`;
+    `EPA CyAN satellite estimates · Not an official advisory · Checked ${shortDateTime(latestLake.checkedAt)}`;
   render();
 }
 
@@ -202,11 +202,11 @@ function render() {
   const focus = selected ?? autoFocus();
   if (focus === null) {
     if (lakesFailed && chosenPlace) {
-      showConditionsMessage("Couldn't load the lake verdicts right now. Try again in a few minutes.");
+      showConditionsMessage("Couldn't load the lake ratings. Try again soon.");
     } else {
       showConditionsMessage(chosenPlace
-        ? "Finding the lakes near you… Their ratings show here in a moment."
-        : "Loading today's ratings… Then tap Choose a place at the top to see the lakes near you.");
+        ? "Finding the lakes near you…"
+        : "Loading today's ratings…");
     }
     return;
   }
@@ -256,7 +256,7 @@ function renderArea(focus) {
   const counts = { avoid: 0, caution: 0, low: 0 };
   for (const a of latestLake.areas) counts[a.level] += 1;
   showRowHeading("Jordan Lake areas",
-    `Best first: ${counts.avoid} Avoid, ${counts.caution} Caution, ${counts.low} Low Risk. Tap one to see it above.`);
+    `${counts.avoid} Avoid · ${counts.caution} Caution · ${counts.low} Low Risk · best first`);
   const tiles = latestLake.ranked.map(a => ({
     key: a.id, name: a.name, level: a.level, sub: areaTileSub(a)
   }));
@@ -291,7 +291,7 @@ function renderLake(focus) {
   const center = chosenPlace ?? rowCenter ?? lake;
   let label = (rowCenter ?? lake).name;
   if (chosenPlace) label = chosenPlace.source === "zip" ? `ZIP ${chosenPlace.zip}` : "you";
-  showRowHeading(`Lakes near ${label}`, "Nearest first. Tap one to see its rating above.");
+  showRowHeading(`Lakes near ${label}`, "Nearest first · tap one to see it");
   showTiles(document.getElementById("tiles"), lakeTiles(center, null), lake.id,
             id => openLake(Number(id), { fromRow: true }));
 }
@@ -305,11 +305,11 @@ function renderNearLakes(focus) {
 
   const box = document.getElementById("near-lakes");
   if (lakesFailed) {
-    box.innerHTML = "<p>Couldn't load the lake verdicts right now. Try again in a few minutes.</p>";
+    box.innerHTML = "<p>Couldn't load the lake ratings. Try again soon.</p>";
     return;
   }
   if (!nationwide) {
-    box.innerHTML = "<p class=\"small\">Loading the lakes nearby… Their ratings show here in a moment.</p>";
+    box.innerHTML = "<p class=\"small\">Loading nearby lakes…</p>";
     return;
   }
   document.getElementById("near-lakes-title").textContent =
@@ -424,14 +424,14 @@ async function loadLakeExtras(lake) {
 // place (nearby.js), around the lake's middle, or for a big lake its
 // shore closest to the user
 async function showStationsForLake(lake, element) {
-  element.innerHTML = "<p>Looking for live USGS water stations near this lake…</p>";
+  element.innerHTML = "<p>Finding live USGS stations near this lake…</p>";
   try {
     const point = chosenPlace ? closestPointOfLake(lake, chosenPlace) : lake;
     const result = await findStationsNear(point);
     showStationsNearLake(element, result, escapeHtml(lake.name));
   } catch (error) {
     console.error("Failed to load the stations near", lake.name, error);
-    element.innerHTML = `<p>Couldn't load the stations near this lake: ${error.message} Try again in a few minutes.</p>`;
+    element.innerHTML = `<p>Couldn't load stations: ${error.message} Try again soon.</p>`;
   }
 }
 
@@ -536,7 +536,7 @@ async function startScan() {
     console.error("Camera scan failed", error);
     stopCamera(scanVideo);
     scanVideo.hidden = true;
-    showScanStatus(`Couldn't start the scan: ${error.message}. Allow camera access and try again.`);
+    showScanStatus(`Couldn't start the camera: ${error.message}. Allow camera access.`);
   }
   scanButton.disabled = false;
 }
@@ -548,7 +548,7 @@ function stopScan() {
   stopCamera(scanVideo);
   scanVideo.hidden = true;
   scanButton.textContent = "Start camera";
-  showScanStatus("Camera off. Tap Start camera, then point your phone at the water near the shore.");
+  showScanStatus("Camera off. Tap Start camera, then point at the water.");
   recentLabels = [];
   if (askingAboutBloom) {
     askingAboutBloom = false;
@@ -640,7 +640,7 @@ async function useZip(zip) {
     choosePlace({ ...point, source: "zip", zip });
   } catch (error) {
     console.error("Couldn't look up the ZIP", error);
-    showNearYouStatus(`Couldn't look up ZIP ${zip} right now (${error.message}). Try again in a minute.`);
+    showNearYouStatus(`Couldn't look up ZIP ${zip} (${error.message}). Try again soon.`);
   }
 }
 
@@ -738,13 +738,12 @@ function showSuggestions() {
     return;
   }
   if (!nationwide) {
-    suggestionsBox.innerHTML = '<li class="small">The lake list is still loading. Try again in a moment, or type a ZIP code.</li>';
+    suggestionsBox.innerHTML = '<li class="small">Lake list still loading. Try again, or type a ZIP.</li>';
     return;
   }
   const found = searchLakes(nationwide.lakes, text, chosenPlace);
   if (found.length === 0) {
-    suggestionsBox.innerHTML = `<li class="small">No covered lake matches "${escapeHtml(text)}" yet. Keep typing,
-      check the spelling, or try a ZIP code.</li>`;
+    suggestionsBox.innerHTML = `<li class="small">No covered lake matches "${escapeHtml(text)}". Check spelling or try a ZIP.</li>`;
     return;
   }
   suggestionsBox.innerHTML = found.map(({ lake, km }) => `

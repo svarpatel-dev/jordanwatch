@@ -3,19 +3,10 @@
 // Takes results from the other files and shows them; does no data work itself.
 
 import { icon, TREND_ICONS } from "./icons.js";
-import { shortDate, leastAffectedText, VERDICT_NAMES } from "./advice.js";
-import { whyRowsHtml, todoHtml, reportHtml, stationBadge, toxinNoteHtml, cardHeadHtml } from "./cardparts.js";
-
-// How to show each reading, in display order. Readings a station
-// doesn't have are skipped.
-const READING_DISPLAY = [
-  { key: "tempC", label: "Temp", unit: "°C" },
-  { key: "doMgL", label: "DO", unit: " mg/L" },
-  { key: "ph", label: "pH", unit: "" },
-  { key: "turbidityFnu", label: "Turbidity", unit: " FNU" },
-  { key: "flowCfs", label: "Flow", unit: " cubic ft/sec" },
-  { key: "lakeLevelFt", label: "Lake level", unit: " ft above sea level" }
-];
+import { shortDate, shortDateTime, leastAffectedText, VERDICT_NAMES } from "./advice.js";
+import { compactCells } from "./lake.js";
+import { whyRowsHtml, todoHtml, reportHtml, stationBadge, sourcesHtml, cardHeadHtml, metaChipsHtml,
+         infoRowHtml, readingsGridHtml } from "./cardparts.js";
 
 // Headings for the groups in the station dropdown, in display order
 const TIER_LABELS = {
@@ -27,8 +18,8 @@ const TIER_LABELS = {
 // How to describe each kind of satellite estimate. CyAN makes daily
 // estimates from single images and weekly ones that combine a week of images.
 const FREQUENCY_LABELS = {
-  Daily: "daily estimate",
-  Weekly: "weekly estimate"
+  Daily: "Daily estimate",
+  Weekly: "Weekly estimate"
 };
 
 // Jordan Lake's park rule for dogs (NC State Parks): on Low Risk days the
@@ -47,13 +38,13 @@ const SCAN_LABELS = {
 };
 
 const TREND_WORDS = {
-  worse: "getting worse",
-  better: "getting better",
-  steady: "about the same"
+  worse: "Getting worse",
+  better: "Getting better",
+  steady: "About the same"
 };
 
 // Extra line for areas without a recent satellite reading (decided Oct 5)
-const NO_RECENT_SATELLITE = "No recent satellite reading here. Check the water yourself: if it looks green, scummy or smells bad, stay out.";
+const NO_RECENT_SATELLITE = "No recent satellite reading · Green or scummy? Stay out.";
 
 // --- The example station picker (no place chosen) ---
 
@@ -82,29 +73,25 @@ export function showLoading(station) {
 }
 
 export function showResult(station, risk, readings) {
-  // One line per reading this station actually has
-  const readingLines = READING_DISPLAY
-    .filter(r => readings[r.key])
-    .map(r => `${r.label}: ${readings[r.key].value}${r.unit}`)
-    .join("<br>");
-
-  // Time of the newest reading, e.g. "9/28/2026, 4:15 PM"
+  // Time of the newest reading, e.g. "Sep 28, 4:15 PM"
   const times = Object.values(readings)
     .filter(r => r)
     .map(r => new Date(r.timestamp).getTime());
-  const latestTime = times.length > 0
-    ? new Date(Math.max(...times)).toLocaleString()
-    : null;
+  const latestTime = times.length > 0 ? shortDateTime(Math.max(...times)) : null;
+
+  // Small chips first (station number, flow, age), then the values as a
+  // grid, the reason in one line, and the longer note one tap away
+  const chips = [`USGS ${station.id}`];
+  if (risk.flowStatus) chips.push(`Flow ${risk.flowStatus}`);
+  if (latestTime) chips.push(`Updated ${latestTime}`);
+  if (risk.isOutdated) chips.push(`${icon("warning")} 3–24 hours old`);
 
   document.getElementById("status").innerHTML = `
     <p class="station-head"><strong>${station.name}</strong> ${stationBadge(risk.level)}</p>
-    <p class="small">USGS ${station.id}</p>
-    <p>${risk.reason}</p>
-    ${risk.note ? `<p class="small">${icon("info")} ${risk.note}</p>` : ""}
-    ${risk.flowStatus ? `<p>Flow is ${risk.flowStatus}.</p>` : ""}
-    ${risk.isOutdated ? `<p class="small">${icon("warning")} The reading is 3–24 hours old.</p>` : ""}
-    <p>${readingLines || "No recent readings from this station."}</p>
-    ${latestTime ? `<p class="small">Latest reading: ${latestTime}</p>` : ""}
+    ${metaChipsHtml(chips)}
+    ${readingsGridHtml(readings)}
+    <p class="station-reason">${risk.reason}</p>
+    ${risk.note ? `<details class="more"><summary>About this rating</summary><p class="small">${risk.note}</p></details>` : ""}
   `;
 }
 
@@ -122,9 +109,15 @@ export function showError(station, message) {
 // whole result; reportRoutes = data/report_routes.json (or null)
 export function showAreaDetails(area, lake, reportRoutes) {
   const verdict = VERDICT_NAMES[area.level];
-  const image = area.imageDate
-    ? `Satellite image ${shortDate(area.imageDate)} (${describeAge(area.imageAgeDays)}), ${FREQUENCY_LABELS[area.frequency] || "estimate"}`
-    : "No satellite image";
+  // Small chips instead of a sentence: "Swim beach" · "Image Oct 20 · 2 days old" · "Daily estimate"
+  const chips = [area.swimBeach ? "Swim beach" : "No swim beach"];
+  if (area.imageDate) {
+    chips.push(`Image ${shortDate(area.imageDate)} · ${describeAge(area.imageAgeDays)}`);
+    chips.push(FREQUENCY_LABELS[area.frequency] || "Estimate");
+  } else {
+    chips.push("No satellite image");
+  }
+  if (area.borrowedFrom) chips.push(`Nearest reading: ${area.borrowedFrom}`);
 
   // lake.js's reasons, one row each; "unavailable" ones are gray
   const rows = area.reasons.map(reason => ({
@@ -133,55 +126,45 @@ export function showAreaDetails(area, lake, reportRoutes) {
     raises: reason.raises === true || reason.source === "camera",
     off: reason.unavailable === true,
     headline: reason.headline,
+    value: reason.value,
     text: reason.text
   }));
 
   document.getElementById("why").innerHTML = `
     ${cardHeadHtml(`Why ${area.name} is at ${verdict}`, "why")}
-    <p class="small">${area.swimBeach ? "Swim beach" : "No designated swim beach"}. ${image}.</p>
-    ${area.borrowedFrom ? `<p class="small">No satellite coverage in this narrow arm, so the nearest reading (${area.borrowedFrom}) is shown.</p>` : ""}
+    ${metaChipsHtml(chips)}
+    ${area.borrowedFrom ? `<p class="small">This narrow arm has no satellite coverage.</p>` : ""}
+    ${area.noRecentSatellite ? `<p class="note">${icon("warning")} ${NO_RECENT_SATELLITE}</p>` : ""}
     ${whyRowsHtml(rows)}
-    ${area.noRecentSatellite ? `<p class="small">${NO_RECENT_SATELLITE}</p>` : ""}
-    ${trendLine(area.trend)}
-    ${intakeNote(lake.intake)}
-    ${toxinNoteHtml()}
-    <p class="small">Satellite estimates from EPA CyAN (about 300 m pixels), last checked
-      ${new Date(lake.checkedAt).toLocaleString()}. Not an official advisory.</p>
+    ${trendRow(area.trend)}
+    ${intakeRow(lake.intake)}
+    ${sourcesHtml(lake.checkedAt)}
   `;
 
   document.getElementById("todo").innerHTML = `
     ${cardHeadHtml("What to do", "todo")}
     ${todoHtml(area, area.level === "low" ? JORDAN_LOW_RISK_PETS : null)}
-    ${lake.leastAffected ? `<p class="note">${leastAffectedText(lake.leastAffected)}</p>` : ""}
+    ${lake.leastAffected ? `<p class="note">${leastAffectedText(lake.leastAffected, lake.areas.length)}</p>` : ""}
     ${reportHtml("NC", reportRoutes)}
   `;
 }
 
-// "Trend since Oct 6: getting worse (210,000 → 602,560 cells/mL)"
-function trendLine(trend) {
+// "Trend since Oct 19 · Getting better" over "525k → 217k cells/mL · two images, not a forecast"
+function trendRow(trend) {
   if (!trend) return "";
-  const to = trend.toBelowDetection ? "below detection" : `${trend.toCells.toLocaleString()} cells/mL`;
-  return `
-    <p class="small">${icon(TREND_ICONS[trend.direction])} Trend since ${shortDate(trend.sinceDate)}:
-      <strong>${TREND_WORDS[trend.direction]}</strong> (${trend.fromCells.toLocaleString()} → ${to}).
-      A change between two satellite images, not a forecast.</p>
-  `;
+  const to = trend.toBelowDetection ? "below detection" : `${compactCells(trend.toCells)} cells/mL`;
+  return infoRowHtml(TREND_ICONS[trend.direction],
+    `Trend since ${shortDate(trend.sinceDate)} · ${TREND_WORDS[trend.direction]}`,
+    `${compactCells(trend.fromCells)} → ${to} · Two images, not a forecast`);
 }
 
 // The drinking-water intake: context only, never a verdict (decided Oct 3)
-function intakeNote(intake) {
+function intakeRow(intake) {
   if (!intake || intake.status !== "ok") return "";
-
   // Below detection (bug 9 fix, Oct 10): say so instead of "about 0 cells/mL"
-  const amount = intake.belowDetection
-    ? "below detection (under about 6,500 cells/mL)"
-    : `about ${intake.cellsPerMl.toLocaleString()} cells/mL`;
-
-  return `
-    <p class="small">${icon("droplet")} Near the Cary/Apex drinking-water intake: ${amount}
-      (satellite image ${shortDate(intake.imageDate)}). Context only: this water is treated
-      before it reaches taps, so this is not a tap-water rating.</p>
-  `;
+  const amount = intake.belowDetection ? "below detection (under ~6,500)" : `${compactCells(intake.cellsPerMl)} cells/mL`;
+  return infoRowHtml("droplet", `Cary/Apex intake · ${amount}`,
+    `Image ${shortDate(intake.imageDate)} · Context only, not a tap-water rating`);
 }
 
 // "today", "1 day old", "5 days old"
@@ -216,7 +199,7 @@ export function showScanResult(result) {
   strip.className = `scan-result ${color}`;
   strip.innerHTML = `
     <strong>${words}</strong> <span>${percent}% confident</span>
-    ${result.label === "bloom" ? "<br>Stay out of the water and keep pets away." : ""}
+    ${result.label === "bloom" ? "<br>Stay out and keep pets away." : ""}
   `;
 }
 
@@ -242,16 +225,15 @@ export function askAboutBloom(percent, onAnswer) {
 // After the user says Yes: what happened, plus the report link (reportLink
 // = reportHtml() for the user's state)
 export function showBloomSaved(areaName, reportLink) {
-  showScanNote(`Saved on this phone only: your scan now counts toward <strong>${areaName}</strong>'s
-    verdict for today (one level higher, up to Avoid).`, reportLink);
+  showScanNote(`Saved on this phone only: <strong>${areaName}</strong> is one level higher today.`, reportLink);
 }
 
 export function showBloomNotNear(reportLink) {
-  showScanNote("You're not near a lake JordanWatch covers yet, so no verdict changed.", reportLink);
+  showScanNote("Not near a covered lake, so no verdict changed.", reportLink);
 }
 
 export function showBloomNoLocation(message, reportLink) {
-  showScanNote(`Couldn't get your location (${message}), so no verdict changed.`, reportLink);
+  showScanNote(`No location (${message}), so no verdict changed.`, reportLink);
 }
 
 export function clearScanNote() {
@@ -261,7 +243,7 @@ export function clearScanNote() {
 function showScanNote(text, reportLink) {
   document.getElementById("scan-note").innerHTML = `
     <p>${text}</p>
-    <p>If you see a bloom, report it so it can be checked. Stay out of the water and keep pets away.</p>
+    <p>Stay out and keep pets away. Report it so it gets checked:</p>
     ${reportLink}
   `;
 }

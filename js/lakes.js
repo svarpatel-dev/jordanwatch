@@ -11,6 +11,7 @@
 //   clouds both look empty), so it can warn but never give Low Risk.
 
 import { distanceKm } from "./location.js";
+import { compactCells } from "./lake.js";
 
 const INDEX_FILE = "data/lakes/index.json";
 const READINGS_FILE = "data/lakes/readings.json";
@@ -103,14 +104,15 @@ function withAge(reading) {
 // Returns { level ("avoid", "caution", "low" or null), status ("ok",
 // "no-recent" or "too-small"), source ("check" or "image"), reading,
 // satelliteHeadline (a short plain headline for the Why card, decided
-// Oct 21), reasons: [sentences] }. Three WHO levels only, with no
+// Oct 21), satelliteValue (its short key value, e.g. "217k cells/mL"),
+// reasons: [sentences] }. Three WHO levels only, with no
 // stratification within Avoid (decided Oct 21, after NC DHHS's feedback).
 export function lakeVerdict(lake) {
   // EPA's own count of the water pixels it can see, once the lake has been
   // checked; before that, the pixels inside its outline on the image
   const pixels = lake.check?.lakePixels ?? lake.pixels;
   if (pixels < MIN_LAKE_PIXELS) {
-    return noVerdict("too-small", "Too small for the satellite",
+    return noVerdict("too-small", "Too small for the satellite", "Too small",
       "Too small for the satellite: its 300 m pixels here all touch the shore, and EPA leaves those out.");
   }
 
@@ -129,8 +131,9 @@ export function lakeVerdict(lake) {
     const lastAvoidPixel = newestDate(lake.check.last100, lake.image?.last100);
     signal = checkSignal(check, lastAvoidPixel);
   } else {
-    const headline = lake.check || lake.image ? "No recent satellite look" : "Not checked yet";
-    return noVerdict("no-recent", headline, noRecentReason(lake));
+    const looked = lake.check || lake.image;
+    const headline = looked ? "No recent satellite look" : "Not checked yet";
+    return noVerdict("no-recent", headline, looked ? "No recent reading" : "Not checked yet", noRecentReason(lake));
   }
 
   return {
@@ -139,6 +142,7 @@ export function lakeVerdict(lake) {
     source: signal.source,
     reading: signal.reading,
     satelliteHeadline: signal.headline,
+    satelliteValue: signal.value,
     reasons: [signal.text, ...sizeNotes(lake, pixels)]
   };
 }
@@ -149,22 +153,22 @@ function checkSignal(check, lastAvoidPixel) {
   const looked = `Satellite (${check.date}): it saw ${percent(seen / check.lakePixels)} of the lake`;
   // (max is null when nothing was detected; it's only used when something was)
   const highest = check.max === null ? "" : `the highest pixel was about ${cellsText(check.max)}`;
-  const result = (level, headline, text) => ({ source: "check", reading: check, level, headline, text });
+  const result = (level, headline, value, text) => ({ source: "check", reading: check, level, headline, value, text });
 
   // At least 5% of what it saw is at the Avoid level
   if (reaches(check.n100, seen)) {
-    return result("avoid", "Strong bloom in parts of the lake",
+    return result("avoid", "Strong bloom in parts of the lake", `${compactCells(check.avoidMean)} cells/mL`,
       `${looked}, and ${percent(check.n100 / seen)} of what it saw was above the WHO 1999/2003 moderate-risk level (100,000 cells/mL). Those pixels averaged about ${cellsText(check.avoidMean)}; ${highest}.`);
   }
   // At least 5% at the Caution level
   if (reaches(check.n20, seen)) {
     const avoidPixels = check.n100 > 0 ? ` ${pixelCount(check.n100)} reached the Avoid level (100,000+); ${highest}.` : "";
-    return result("caution", "Some algae, below the Avoid level",
+    return result("caution", "Some algae, below the Avoid level", `${percent(check.n20 / seen)} above 20k`,
       `${looked}, and ${percent(check.n20 / seen)} of what it saw was above the WHO 1999/2003 low-risk level (20,000 cells/mL).${avoidPixels}`);
   }
   // Rule B (decided Oct 13): even one Avoid-level pixel means it can't be Low Risk
   if (check.n100 > 0) {
-    return result("caution", "Mostly low, but a few strong-bloom pixels",
+    return result("caution", "Mostly low, but a few strong-bloom pixels", peakValue(check.max),
       `${looked}. Most of it was below 20,000 cells/mL, but ${pixelCount(check.n100)} reached the Avoid level (100,000+; ${highest}), so low levels can't be confirmed.`);
   }
 
@@ -173,18 +177,19 @@ function checkSignal(check, lastAvoidPixel) {
     ? "all of it below detection (under about 6,500 cells/mL), under the WHO 1999/2003 low-risk level (20,000)"
     : `${percent((seen - check.detected) / seen)} of it below detection, and ${check.n20 === 0 ? "none" : "under 5%"} of it above the WHO 1999/2003 low-risk level (20,000 cells/mL)`;
   const text = `${looked}: ${clean}.`;
+  const lowValue = check.detected === 0 ? "Below detection" : "Under 20k cells/mL";
   if (seen < GOOD_LOOK_SHARE * check.lakePixels) {
-    return result("caution", "No bloom seen, but only part of the lake", `${text} That's too little of the lake to confirm low levels.`);
+    return result("caution", "No bloom seen, but only part of the lake", `Saw ${percent(seen / check.lakePixels)} of lake`, `${text} That's too little of the lake to confirm low levels.`);
   }
   // ...a current image (7–14 days old can't give an all-clear)...
   if (check.ageDays > IMAGE_CURRENT_DAYS) {
-    return result("caution", "No bloom seen, but the reading is old", `${text} But the reading is ${check.ageDays} days old, so low levels can't be confirmed.`);
+    return result("caution", "No bloom seen, but the reading is old", `${check.ageDays} days old`, `${text} But the reading is ${check.ageDays} days old, so low levels can't be confirmed.`);
   }
   // ...and no Avoid-level pixel in the week before
   if (lastAvoidPixel && daysBetween(lastAvoidPixel, check.date) <= RECENT_BLOOM_DAYS) {
-    return result("caution", "No bloom seen, but one within the last week", `${text} But part of the lake was at the Avoid level on ${lastAvoidPixel}, within a week of this reading, so low levels can't be confirmed yet.`);
+    return result("caution", "No bloom seen, but one within the last week", lowValue, `${text} But part of the lake was at the Avoid level on ${lastAvoidPixel}, within a week of this reading, so low levels can't be confirmed yet.`);
   }
-  return result("low", "No bloom seen", text);
+  return result("low", "No bloom seen", lowValue, text);
 }
 
 // --- Nationwide image: only blooms show, so it only ever warns ---
@@ -196,25 +201,25 @@ function imageSignal(image) {
     ? `EPA's weekly satellite image (the worst day of the week of ${weekText(image.date)})`
     : `EPA's nationwide satellite image (${image.date})`;
   const cantConfirm = "Clouds and clean water both look empty in this image, so it can show a bloom but can't confirm low levels.";
-  const result = (level, headline, text) => ({ source: "image", reading: image, level, headline, text: `${text} ${cantConfirm}` });
+  const result = (level, headline, value, text) => ({ source: "image", reading: image, level, headline, value, text: `${text} ${cantConfirm}` });
 
   if (reaches(image.n100, pixels)) {
-    return result("avoid", "Strong bloom in parts of the lake",
+    return result("avoid", "Strong bloom in parts of the lake", `${compactCells(image.avoidMean)} cells/mL`,
       `${where}: ${percent(image.n100 / pixels)} of the lake was above the WHO 1999/2003 moderate-risk level (100,000 cells/mL). Those pixels averaged about ${cellsText(image.avoidMean)}; the highest was about ${cellsText(image.max)}.`);
   }
   if (reaches(image.n20, pixels)) {
-    return result("caution", "Some algae, below the Avoid level",
+    return result("caution", "Some algae, below the Avoid level", `${percent(image.n20 / pixels)} above 20k`,
       `${where}: ${percent(image.n20 / pixels)} of the lake was above the WHO 1999/2003 low-risk level (20,000 cells/mL).`);
   }
   if (image.n100 === 0) return null;
   // Rule B: an Avoid-level pixel or two, not 5% of the lake
-  return result("caution", "A few strong-bloom pixels",
+  return result("caution", "A few strong-bloom pixels", peakValue(image.max),
     `${where}: ${pixelCount(image.n100)} reached the Avoid level (100,000+; the highest about ${cellsText(image.max)}).`);
 }
 
 // --- No verdict ---
-function noVerdict(status, headline, reason) {
-  return { level: null, status, source: null, reading: null, satelliteHeadline: headline, reasons: [reason] };
+function noVerdict(status, headline, value, reason) {
+  return { level: null, status, source: null, reading: null, satelliteHeadline: headline, satelliteValue: value, reasons: [reason] };
 }
 
 // Why there's no recent reading (the missing-data rule, decided Oct 13:
@@ -235,11 +240,11 @@ function noRecentReason(lake) {
 function sizeNotes(lake, pixels) {
   const notes = [];
   if (pixels < FEW_PIXELS) {
-    notes.push(`Based on only ${pixels} satellite pixels, so it's a rough reading.`);
+    notes.push(`Only ${pixels} satellite pixels: a rough reading.`);
   }
   if (lake.km2 >= LARGE_LAKE_KM2) {
     const sqMiles = Math.round(lake.km2 * SQ_MILES_PER_KM2).toLocaleString();
-    notes.push(`A large lake (about ${sqMiles} square miles): one part can be much worse than another, and this is one verdict for the whole lake.`);
+    notes.push(`Large lake (about ${sqMiles} sq mi): one verdict for all of it, but parts can differ a lot.`);
   }
   return notes;
 }
@@ -319,6 +324,11 @@ function percent(share) {
   if (share > 0 && share < 0.01) return "under 1%";
   if (share > 0.99 && share < 1) return "over 99%";
   return `${Math.round(share * 100)}%`;
+}
+
+// The highest pixel, short: "Peak 155k cells/mL"
+function peakValue(cells) {
+  return `Peak ${compactCells(cells)} cells/mL`;
 }
 
 function cellsText(cells) {

@@ -112,7 +112,7 @@ main { max-width: 1100px; margin: 0 auto; }
 .now-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13.5px; }
 .now-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .now-line { margin-top: 6px; font-size: 13.5px; }
-.now-action, .now-go {
+.now-go {
   display: flex; align-items: flex-start; gap: 10px;
   width: 100%; margin-top: 12px; padding: 9px 11px;
   border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 8px;
@@ -126,12 +126,23 @@ main { max-width: 1100px; margin: 0 auto; }
   border: 0; background: none; color: inherit; font-size: 13.5px; text-align: left;
   text-decoration: underline; text-underline-offset: 2px;
 }
-.now-action > .i { margin-top: 2px; }
+/* What to do: a 2x2 grid of chips, an icon and 2-3 words each (decided Oct 21) */
+.now-chips {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin: 12px 0 0; padding: 0; list-style: none;
+}
+.chip {
+  display: flex; align-items: center; gap: 8px; min-height: 44px;
+  padding: 7px 10px; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 13.5px; font-weight: 600; line-height: 1.25;
+}
+.chip > .i { flex: none; }
 .now-go { align-items: center; }
 .now-go .i { margin-left: auto; }
 /* Not a button (a beach can't be opened), so no box around it */
 .now-go-text { display: block; padding: 0; border: 0; background: none; }
-.now-caution .now-action, .now-caution .now-go:not(.now-go-text) {
+.now-caution .chip, .now-caution .now-go:not(.now-go-text) {
   border-color: rgba(22, 32, 42, 0.35); background: rgba(255, 255, 255, 0.22);
 }
 
@@ -213,7 +224,7 @@ main { max-width: 1100px; margin: 0 auto; }
 .card > p + p, .card > p + ul, .card > ul + p { margin-top: 8px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
 .card-head h2 { margin: 0; }
-.card-note { padding: 8px 14px 12px; font-size: 12px; color: var(--ink-soft); }
+.card-note { margin: 0; padding: 8px 14px 12px 30px; font-size: 12px; color: var(--ink-soft); }
 .note {
   margin-top: 10px; padding: 8px 10px; border-radius: 8px;
   background: var(--page); font-size: 13.5px;
@@ -327,34 +338,53 @@ body.map-open { overflow: hidden; }
 }
 .leaflet-control-attribution { font-size: 10px; }
 
-/* --- Why card --- */
-.why-list { margin: 8px 0 0; padding: 0; list-style: none; }
-.why-row {
-  display: grid; grid-template-columns: 24px 1fr; gap: 10px;
-  padding: 9px 0; border-top: 1px solid var(--line);
+/* --- Why card: small cards, two per row (decided Oct 21) --- */
+.why-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin: 10px 0 0; padding: 0; list-style: none;
 }
-.why-row:first-child { border-top: 0; }
-.why-row > .i { margin-top: 1px; }
-/* Each row: the signal's name (small), its plain headline, then the exact
-   numbers in smaller type (decided Oct 21) */
-.why-name { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
-.why-head { display: block; margin-top: 1px; font-size: 15px; font-weight: 700; }
-.why-row p { margin-top: 2px; font-size: 13px; color: var(--ink-soft); }
-.why-off { color: var(--ink-soft); }
+.why-card {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+}
+/* Top line: icon + the signal's name (small), the verdict tag in the corner */
+.why-top { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.why-name { font-size: 12px; font-weight: 600; }
+.why-top .why-tag { margin-left: auto; }
+.why-head { font-size: 14px; font-weight: 700; line-height: 1.25; }
+/* The one key number, a little bigger */
+.why-value { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; overflow-wrap: anywhere; }
+/* The full sentence, one tap away */
+.why-more { margin-top: auto; padding-top: 4px; font-size: 12.5px; color: var(--ink-soft); }
+.why-more summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.why-more p { margin-top: 4px; }
+/* No data here, or couldn't load: gray */
+.why-off { background: var(--page); color: var(--ink-soft); }
 .why-off .why-head { font-weight: 600; }
-.toxin-note { margin-top: 10px; }
+.why-off .why-value { font-size: 15px; font-weight: 600; }
+/* A note (e.g. "A large lake...") spans both columns */
+.why-note { grid-column: 1 / -1; background: var(--page); }
+.why-note p { font-size: 13px; color: var(--ink-soft); }
+@media (max-width: 359px) {
+  .why-grid, .now-chips { grid-template-columns: 1fr; }
+}
 .why-tag {
-  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 600; vertical-align: 1px;
+  flex: none; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: var(--ink); white-space: nowrap;
 }
 .tag-avoid { background: var(--avoid); color: #ffffff; }
 .tag-caution { background: var(--caution); color: var(--ink); }
 .tag-up { border: 1px solid var(--ink); }
 
 /* --- What to do card --- */
-.todo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.todo h3 { margin: 0 0 2px; font-size: 13.5px; }
-.todo p { font-size: 13.5px; }
+/* Suggested / Not suggested / Always: a label, then a row of chips */
+.todo-row + .todo-row { margin-top: 10px; }
+.todo-row h3 { margin: 0 0 4px; font-size: 13px; color: var(--ink-soft); }
+.todo-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.todo-chips li { padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+.chips-ok li { background: #e3f1e7; }
+.chips-no li { background: #fbe4e2; }
+.chips-always li { border: 1px solid var(--line); }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .tags span {
   display: inline-flex; align-items: center; gap: 6px;
@@ -371,16 +401,16 @@ body.map-open { overflow: hidden; }
 .badge-low { background: var(--low-block); color: #ffffff; }
 .badge-none { background: #e3e7eb; color: var(--ink); }
 .station { border-top: 1px solid var(--line); }
-.station summary {
+.station > summary {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 0; list-style: none; cursor: pointer;
 }
-.station summary::-webkit-details-marker { display: none; }
-.station summary > span:first-child { flex: 1; min-width: 0; }
-.station summary strong { display: block; font-weight: 600; font-size: 14px; }
-.station summary small { color: var(--ink-soft); font-size: 12px; }
-.station summary .i { color: var(--ink-soft); transition: transform 150ms; }
-.station[open] summary .i { transform: rotate(90deg); }
+.station > summary::-webkit-details-marker { display: none; }
+.station > summary > span:first-child { flex: 1; min-width: 0; }
+.station > summary strong { display: block; font-weight: 600; font-size: 14px; }
+.station > summary small { color: var(--ink-soft); font-size: 12px; }
+.station > summary .i { color: var(--ink-soft); transition: transform 150ms; }
+.station[open] > summary .i { transform: rotate(90deg); }
 .station > p { margin-bottom: 8px; font-size: 14px; }
 details.more summary { padding: 8px 0; color: var(--blue); font-weight: 600; font-size: 14px; cursor: pointer; }
 #station-picker-box label { display: block; margin-top: 10px; font-size: 13px; font-weight: 600; }
@@ -520,7 +550,10 @@ dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
 .about p { font-size: 14.5px; }
 .about p + p { margin-top: 8px; }
 .credits li { display: list-item; margin-left: 18px; list-style: disc; padding: 2px 0; }
-.placeholder { padding: 8px 10px; border: 1px dashed var(--ink-soft); border-radius: 8px; color: var(--ink-soft); }
+/* About me (Svar's own text, Oct 21): two short paragraphs, easy line length */
+.about-me { max-width: 62ch; }
+.about-me p { line-height: 1.55; }
+.about-me p + p { margin-top: 10px; }
 
 /* --- Laptop and wider: the map on the left (sticky), the answer on the
    right, 1,100 px at most (decided Oct 19) --- */
@@ -549,3 +582,93 @@ dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* --- Readability pass (Oct 21): short labels, chips and small cards; the
+   long sentences sit one tap away inside <details> --- */
+/* Small gray chips: "Swim beach", "Image Oct 20 · 2 days old" */
+.meta-chips, .fact-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.meta-chips li, .fact-chips li {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px; border-radius: 999px; background: var(--page);
+  font-size: 12.5px; color: var(--ink-soft);
+}
+.fact-chips { margin-top: 8px; }
+.fact-chips li { border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+
+/* Coverage: "4 of 5 signals" and one pill per signal */
+.coverage { margin: 0 0 10px; }
+.coverage-count { font-size: 13px; font-weight: 700; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px 2px 6px; border-radius: 999px; border: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.pill-used { border-color: var(--low); }
+.pill-used .i { color: var(--low); }
+.pill-not-here, .pill-loading { background: var(--page); color: var(--ink-soft); }
+.pill-failed { border-color: var(--caution); }
+.pill-failed .i { color: #9a6a00; }
+
+/* Short bullets inside a "Sources & notes", "What's missing"... tap */
+.bullets { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); }
+.bullets li + li { margin-top: 3px; }
+.sources { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sources details.more summary, .coverage details.more summary { padding: 4px 0 0; font-size: 13px; }
+
+/* A small row with an icon: the trend, the drinking-water intake */
+.info-row {
+  display: flex; align-items: flex-start; gap: 10px; margin-top: 8px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+}
+.info-row > .i { color: var(--ink-soft); }
+.info-row strong { display: block; font-size: 14px; }
+.info-row small { display: block; font-size: 12.5px; color: var(--ink-soft); }
+
+/* "Where you are" and "Go here instead": small highlighted cards */
+.pick-card { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--page); border-left: 3px solid var(--navy); }
+.pick-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.pick-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+
+/* Beaches: one compact row each */
+.beach-list { margin: 4px 0 0; padding: 0; list-style: none; }
+.beach-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.beach-list li:first-child { border-top: 0; }
+.beach-list > li > .i { color: var(--ink-soft); }
+.beach-name { flex: 1; min-width: 0; }
+.beach-name small { display: block; font-size: 12px; color: var(--ink-soft); }
+.wind-tag { display: inline-flex !important; align-items: center; gap: 4px; margin-top: 2px; font-weight: 600; color: var(--ink) !important; }
+
+/* A station's readings as a grid of values */
+.value-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px;
+  margin: 0 0 8px;
+}
+.value-grid div { padding: 6px 8px; border-radius: 8px; background: var(--page); }
+.value-grid dt { font-size: 11.5px; color: var(--ink-soft); }
+.value-grid dd { margin: 0; font-size: 15px; font-weight: 700; }
+.value-grid small { display: block; font-size: 11px; color: var(--ink-soft); }
+.station-reason { font-size: 13.5px; }
+.station > .meta-chips { margin-top: 2px; }
+.station > details.more { margin-bottom: 8px; }
+
+/* About → How it works: small icon cards */
+.how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.how-card {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  padding: 10px; border: 1px solid var(--line); border-radius: 8px;
+}
+.how-card > .i { color: var(--navy); }
+.how-card strong { font-size: 14px; }
+.how-card > span { font-size: 13px; color: var(--ink-soft); }
+.how-card details.more { margin-top: auto; }
+.how-card details.more summary { padding: 4px 0 0; font-size: 13px; }
+.how-card details p { margin-top: 4px; font-size: 13px; color: var(--ink-soft); }
+.about > p.small { margin-top: 8px; }
+@media (max-width: 359px) {
+  .how-grid { grid-template-columns: 1fr; }
+}
+
+/* If exposed: short steps instead of paragraphs */
+.steps { margin: 4px 0 6px; padding-left: 20px; font-size: 14.5px; }
+.steps li + li { margin-top: 2px; }

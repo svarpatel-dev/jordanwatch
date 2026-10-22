@@ -55,14 +55,14 @@
       </section>
 
       <div id="now" class="now now-none" aria-live="polite">
-        <p class="now-line">Loading today's ratings… Then tap Choose a place at the top to see the lakes near you.</p>
+        <p class="now-line">Loading today's ratings…</p>
       </div>
 
       <!-- Every section on this tab has a plain heading and one line saying
            what it does (decided Oct 21) -->
       <section class="row-wrap" aria-labelledby="row-title">
         <h2 id="row-title" class="row-title">Loading the ratings…</h2>
-        <p id="row-caption" class="row-caption">Each tile is one place's rating. Tap one to see it above.</p>
+        <p id="row-caption" class="row-caption">Tap a tile to see its rating.</p>
         <div id="tiles" class="tiles"></div>
       </section>
 
@@ -74,8 +74,7 @@
           </h2>
           <button type="button" id="full-map-button" class="link-button">Full map</button>
         </div>
-        <p class="card-desc sat-desc">Bloom colors seen by satellite in the past week, and a pin for each
-          rating. Tap a pin for details.</p>
+        <p class="card-desc sat-desc">EPA CyAN satellite colors, past week. Tap a pin.</p>
         <!-- The legend: a thin strip above the map (decided Oct 19) -->
         <div class="legend-strip">
           <span class="legend-unit">Cells/mL</span>
@@ -99,43 +98,44 @@
           <!-- Only in the full map: the area or lake being looked at -->
           <div id="map-sheet" class="map-sheet" hidden></div>
         </div>
-        <p class="card-note">EPA CyAN satellite estimate in cells/mL: the newest bloom seen at each spot in
-          the past week. No color means clean water, clouds or no satellite pass. The 20k and 100k marks
-          are the WHO 1999/2003 guideline levels.</p>
+        <!-- Under the map: two short lines (decided Oct 21: no paragraphs) -->
+        <ul class="card-note">
+          <li>20k and 100k: WHO 1999/2003 guideline levels</li>
+          <li>No color: clean water, clouds or no satellite pass</li>
+        </ul>
       </section>
 
       <!-- Filled in by ui.js or lakecard.js once the data loads -->
       <section id="why" class="card" aria-live="polite">
         <h2>Why</h2>
-        <p class="card-desc">Every signal behind the rating, in plain words, with the numbers.</p>
-        <p class="small">The reasons show here once today's satellite data loads.</p>
+        <p class="card-desc">Each signal behind the rating. The worst one wins.</p>
+        <p class="small">Shows once today's data loads.</p>
       </section>
       <section id="todo" class="card">
         <h2>What to do</h2>
-        <p class="card-desc">What's OK today for people, kids and dogs, and how to report a bloom.</p>
-        <p class="small">The advice shows here once the rating loads.</p>
+        <p class="card-desc">What's OK today, and how to report a bloom.</p>
+        <p class="small">Shows once the rating loads.</p>
       </section>
 
       <section id="near-lakes-card" class="card" aria-labelledby="near-lakes-title">
         <h2 id="near-lakes-title">Lakes near Jordan Lake</h2>
-        <p class="card-desc">Ratings for the closest lakes. Tap one for details.</p>
+        <p class="card-desc">Closest lakes. Tap one for details.</p>
         <div id="near-lakes" class="tiles"></div>
       </section>
 
       <section id="stations-card" class="card" aria-labelledby="stations-title">
         <h2 id="stations-title">Live stations: examples in North Carolina</h2>
-        <p class="card-desc">Live USGS water sensors, each judged by its own state's standards. Tap one
-          for its readings.</p>
+        <p class="card-desc">Live USGS sensors, judged by state standards.</p>
         <!-- Live stations near the chosen place (nearstations.js) -->
         <div id="near-stations"></div>
         <!-- With no place chosen: example stations around Jordan Lake and in
              North Carolina (stations.js). Hidden once a place is chosen
              (decided Oct 19: everything national, Jordan Lake as the default example). -->
         <div id="station-picker-box">
-          <p class="small">Choose a place at the top to see the live stations near it.</p>
+          <p class="small">Choose a place to see stations near it.</p>
           <label for="station-picker">Station</label>
           <select id="station-picker"></select>
-          <div id="status" class="station-result">Pick a station above to see its live readings.</div>
+          <div id="status" class="station-result">Pick a station to see its readings.</div>
         </div>
       </section>
 
@@ -145,13 +145,12 @@
     <!-- Scan tab: the camera (decided Oct 11) -->
     <section id="tab-scan" class="tab scan-tab" aria-labelledby="scan-title" hidden>
       <h1 id="scan-title" class="tab-title">Scan the water</h1>
-      <p class="small">Point your phone's camera at the water near the shore.
-        A screening aid, not a diagnosis.</p>
+      <p class="small">Point at the water near the shore · Screening aid, not a diagnosis</p>
       <div class="scan-view">
         <video id="scan-video" playsinline muted hidden></video>
         <button type="button" id="scan-start" class="scan-start">Start camera</button>
         <p id="scan-result" class="scan-result scan-plain" aria-live="polite">Camera off. Tap Start camera,
-          then point your phone at the water near the shore.</p>
+          then point at the water.</p>
       </div>
       <div id="scan-note" class="scan-note"></div>
     </section>
@@ -161,104 +160,151 @@
       <h1 id="more-title" class="tab-title">More</h1>
       <nav class="card directory" aria-labelledby="directory-title">
         <h2 id="directory-title">Everything in JordanWatch</h2>
-        <p class="card-desc">Every feature, and where to find it.</p>
+        <p class="card-desc">Every feature, and where it is.</p>
         <ul>
           <li><button type="button" data-go="stations">
             <svg class="i i-md" aria-hidden="true"><use href="#i-gauge"></use></svg>
             <span><strong>Live stations</strong>
-              <small>Live USGS water sensors near your place, judged by your state's standards</small></span>
+              <small>Live USGS sensors near your place</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="how">
             <svg class="i i-md" aria-hidden="true"><use href="#i-satellite"></use></svg>
             <span><strong>How it works</strong>
-              <small>How satellite, rain, lake level and wind become one rating</small></span>
+              <small>How the signals become one rating</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="exposed">
             <svg class="i i-md" aria-hidden="true"><use href="#i-warning"></use></svg>
             <span><strong>If exposed</strong>
-              <small>What to do if you, a child or a pet touched bloom water, with numbers to call</small></span>
+              <small>Touched bloom water? Steps and numbers</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="report">
             <svg class="i i-md" aria-hidden="true"><use href="#i-flag"></use></svg>
             <span><strong>Report a bloom</strong>
-              <small>Send a bloom you saw to your state's agency (in the What to do card)</small></span>
+              <small>Send a bloom to your state</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="sources">
             <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
             <span><strong>Data sources</strong>
-              <small>Where every number comes from, and the credits</small></span>
+              <small>Where every number comes from</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="about">
             <svg class="i i-md" aria-hidden="true"><use href="#i-person"></use></svg>
             <span><strong>About</strong>
-              <small>What JordanWatch is, and who made it</small></span>
+              <small>What it is, and who made it</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
         </ul>
       </nav>
 
+      <!-- About (decided Oct 21: short labels and small cards; every longer
+           sentence is one tap away under "More") -->
       <article class="card about">
         <h2 id="about-app">About JordanWatch</h2>
-        <p>JordanWatch rates lakes Avoid, Caution or Low Risk for harmful algal blooms, so
-          swimmers, paddlers and dog owners can check before they go in the water. It was built
-          for Jordan Lake in North Carolina and works for about 7,000 lakes across the US that
-          EPA's satellites cover. It's free, needs no account, and has no ads.</p>
+        <p>Rates lakes Avoid, Caution or Low Risk for harmful algal blooms.</p>
+        <ul class="fact-chips">
+          <li>For swimmers, paddlers, dog owners</li>
+          <li>Built for Jordan Lake, NC</li>
+          <li>About 7,000 US lakes</li>
+          <li>Free · No account · No ads</li>
+        </ul>
 
         <h2 id="about-how">How it works</h2>
-        <p><strong>Satellite.</strong> EPA's CyAN project estimates cyanobacteria (the algae
-          behind harmful blooms) from satellite images, in cells per milliliter, with pixels
-          about 300 m wide. JordanWatch compares them with the World Health Organization's
-          1999/2003 guideline levels: under 20,000 cells/mL is Low Risk, 20,000 to 100,000 is
-          Caution, and over 100,000 is Avoid.</p>
-        <p><strong>Cells, not toxins.</strong> NC DHHS and EPA judge recreation by a toxin,
-          microcystin (8 µg/L), which needs a water test. Satellites can't measure toxins, so
-          JordanWatch uses WHO's cell-count levels as an early warning.</p>
-        <p><strong>Other signals.</strong> Heavy rain in the last 48 hours or a river running
-          higher than usual can wash bacteria into the water, so they can raise a verdict to
-          Caution. So can a lake well above its usual level. Light wind can pile floating algae
-          on the downwind shore, so beaches there go up one level.</p>
-        <p><strong>The worst signal wins.</strong> Each verdict is the worst of its signals, and
-          the Why card shows every one of them. Old or missing data never gives an all-clear:
-          a reading over a week old can keep a warning but can't give Low Risk.</p>
-        <p><strong>Camera scan.</strong> A model trained on photos of blooms, plants, clear
-          water and shorelines looks at what your camera sees. It's a screening aid, not a
-          diagnosis: it says Uncertain when it isn't sure, and a bloom you confirm near one of
-          Jordan Lake's areas raises that area's verdict, on your phone only.</p>
-        <p>Every verdict is worked out on your phone. Your exact location stays on it.</p>
+        <ul class="how-grid">
+          <li class="how-card">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-satellite"></use></svg>
+            <strong>Satellite</strong>
+            <span>EPA CyAN cells/mL vs. WHO 1999/2003 levels</span>
+            <details class="more"><summary>More</summary>
+              <p>EPA's CyAN project estimates cyanobacteria (the algae behind harmful blooms) from
+                satellite images, in cells per milliliter, with pixels about 300 m wide. Under
+                20,000 cells/mL is Low Risk, 20,000 to 100,000 is Caution, and over 100,000 is Avoid.</p></details>
+          </li>
+          <li class="how-card">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
+            <strong>Cells, not toxins</strong>
+            <span>Satellites can't measure toxins</span>
+            <details class="more"><summary>More</summary>
+              <p>NC DHHS and EPA judge recreation by a toxin, microcystin (8 µg/L), which needs a
+                water test. Satellites can't measure toxins, so JordanWatch uses WHO's cell-count
+                levels as an early warning.</p></details>
+          </li>
+          <li class="how-card">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-rain"></use></svg>
+            <strong>Other signals</strong>
+            <span>Rain, rivers, lake level, wind</span>
+            <details class="more"><summary>More</summary>
+              <p>Heavy rain in the last 48 hours or a river running higher than usual can wash
+                bacteria into the water, so they can raise a verdict to Caution. So can a lake well
+                above its usual level. Light wind can pile floating algae on the downwind shore, so
+                beaches there go up one level.</p></details>
+          </li>
+          <li class="how-card">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-warning"></use></svg>
+            <strong>Worst signal wins</strong>
+            <span>Old data never gives an all-clear</span>
+            <details class="more"><summary>More</summary>
+              <p>Each verdict is the worst of its signals, and the Why card shows every one of them.
+                A reading over a week old can keep a warning but can't give Low Risk.</p></details>
+          </li>
+          <li class="how-card">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-camera"></use></svg>
+            <strong>Camera scan</strong>
+            <span>A screening aid, not a diagnosis</span>
+            <details class="more"><summary>More</summary>
+              <p>A model trained on photos of blooms, plants, clear water and shorelines looks at
+                what your camera sees. It says Uncertain when it isn't sure, and a bloom you confirm
+                near one of Jordan Lake's areas raises that area's verdict, on your phone only.</p></details>
+          </li>
+        </ul>
+        <p class="small">Worked out on your phone · Your exact location stays on it</p>
 
         <h2 id="about-me">About me</h2>
-        <!-- PLACEHOLDER: Svar writes this part (decided Oct 12).
-             Privacy: name + "high school student in North Carolina" + why;
-             no town, school, photo or contact details. -->
-        <p class="placeholder">[About me: written by Svar. Name, high school student in
-          North Carolina, and why I built JordanWatch.]</p>
+        <!-- About me: written by Svar (Oct 21). -->
+        <div class="about-me">
+          <p>My name is Svar, and I'm a high school student at Green Level High School in Cary, North Carolina. I built JordanWatch because harmful algal blooms are an unfortunate reality in our local lakes. It's important to know when a lake is risky before you get in, so that people and pets can avoid harmful exposure.</p>
+          <p>JordanWatch combines public satellite data with U.S. Geological Survey stations to rate about 7,000 lakes across the United States. In doing so, data is collected and organized into a format easily readable by the public.</p>
+        </div>
 
         <h2 id="about-sources">Data sources and credits</h2>
         <ul class="plain-list credits">
-          <li>Satellite estimates: U.S. EPA Cyanobacteria Assessment Network (CyAN), with NASA, NOAA and USGS</li>
-          <li>Rain, river flow, lake level and water stations: U.S. Geological Survey (USGS) Water Data</li>
+          <li>Satellite: U.S. EPA CyAN, with NASA, NOAA and USGS</li>
+          <li>Rain, rivers, lake level, stations: USGS Water Data</li>
           <li>Wind: Open-Meteo</li>
           <li>Map and beaches: © OpenStreetMap contributors, ODbL</li>
-          <li>ZIP code locations: U.S. Census Bureau, ZCTA Gazetteer</li>
-          <li>State water quality standards: U.S. EPA Criteria Search Tool and each state's regulations</li>
-          <li>What to do after contact: CDC, Harmful Algal Blooms and Your Health</li>
-          <li>Bloom report routes: each state's environmental or health agency, and EPA</li>
-          <li>Camera training photos: Algal Blooms Sweden (Zenodo, CC BY 4.0), iNaturalist,
-            Wikimedia Commons, Open Images, Florida DEP Algal Bloom Site Visits (Florida public
-            records) and USGS, credited photo by photo in the project's files</li>
-          <li>Code libraries: Leaflet, TensorFlow.js. Typeface: Public Sans</li>
+          <li>ZIP locations: U.S. Census ZCTA Gazetteer</li>
+          <li>State standards: EPA Criteria Search Tool, state rules</li>
+          <li>After-contact steps: CDC, Harmful Algal Blooms and Your Health</li>
+          <li>Report routes: state agencies and EPA</li>
+          <li>Code: Leaflet, TensorFlow.js · Typeface: Public Sans</li>
         </ul>
+        <details class="more"><summary>Camera training photos</summary>
+          <ul class="bullets">
+            <li>Algal Blooms Sweden (Zenodo, CC BY 4.0)</li>
+            <li>iNaturalist</li>
+            <li>Wikimedia Commons</li>
+            <li>Open Images</li>
+            <li>Florida DEP Algal Bloom Site Visits (Florida public records)</li>
+            <li>USGS</li>
+            <li>Credited photo by photo in the project's files</li>
+          </ul>
+        </details>
 
         <h2>Not an official advisory</h2>
-        <p>JordanWatch gives estimates from public data, not lab tests. Satellites can't measure
-          toxins, can't see narrow arms or the shoreline, and can be days old. Always follow
-          posted signs and your state's advisories, and stay out of water that looks green,
-          scummy or like spilled paint.</p>
+        <p>Estimates from public data, not lab tests. Follow posted signs.</p>
+        <details class="more"><summary>Limits</summary>
+          <ul class="bullets">
+            <li>Satellites can't measure toxins</li>
+            <li>They can't see narrow arms or the shoreline</li>
+            <li>Readings can be days old</li>
+            <li>Follow your state's advisories</li>
+            <li>Stay out of water that looks green, scummy or like spilled paint</li>
+          </ul>
+        </details>
       </article>
     </section>
   </main>
@@ -294,7 +340,7 @@
         <input id="search-input" type="search" placeholder="ZIP code or lake name" autocomplete="off" enterkeyhint="search">
       </form>
       <ul id="suggestions" class="suggestions" aria-live="polite">
-        <li class="small">Type a 5-digit ZIP code or part of a lake's name, or use your location.</li>
+        <li class="small">Type a 5-digit ZIP or a lake name.</li>
       </ul>
       <button type="button" id="near-gps" class="button-line">
         <svg class="i" aria-hidden="true"><use href="#i-locate"></use></svg>
@@ -317,12 +363,17 @@
         </button>
       </div>
       <h3><svg class="i" aria-hidden="true"><use href="#i-family"></use></svg> People</h3>
-      <p>Rinse off with tap water right away. If you feel sick, contact a healthcare provider
-        or Poison Control.</p>
+      <ul class="steps">
+        <li>Rinse off with tap water right away</li>
+        <li>Feel sick? Contact a doctor or Poison Control</li>
+      </ul>
       <a class="call" href="tel:18002221222">Poison Control <strong>1-800-222-1222</strong></a>
       <h3><svg class="i" aria-hidden="true"><use href="#i-paw"></use></svg> Pets</h3>
-      <p>Rinse them with tap water right away, before they lick their fur. If they seem sick,
-        call a veterinarian immediately. Animal poison lines charge a fee.</p>
+      <ul class="steps">
+        <li>Rinse them with tap water before they lick their fur</li>
+        <li>Seem sick? Call a vet right away</li>
+        <li>Animal poison lines charge a fee</li>
+      </ul>
       <a class="call" href="tel:18884264435">ASPCA Animal Poison Control <strong>1-888-426-4435</strong></a>
       <a class="call" href="tel:18557647661">Pet Poison Helpline <strong>1-855-764-7661</strong></a>
       <p class="small">From the CDC's
@@ -367,7 +418,10 @@
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5v.01"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4.5 2 4.5H5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-dash" viewBox="0 0 24 24"><path d="M7 12h10"/></symbol>
     <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></symbol>
   </svg>
 
