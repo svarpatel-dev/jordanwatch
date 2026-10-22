@@ -1,6 +1,8 @@
 // The map in the Satellite card: a pin for each Jordan Lake area colored by
-// its verdict, gray markers where the satellite can't see, the
-// drinking-water intake, the satellite colors and the "You are here" dot. Uses Leaflet (loaded in index.html) with OpenStreetMap tiles.
+// its verdict, the satellite colors and the "You are here" dot. Uses
+// Leaflet (loaded in index.html) with OpenStreetMap tiles. (Jordan Lake's
+// fixed blind-spot dots and intake pin were removed Oct 22: everything
+// national. Your tap water's source lake gets a badge instead, lakemap.js.)
 
 import { verdictLabel, shortDate } from "./advice.js";
 
@@ -11,18 +13,6 @@ export const PIN_COLORS = {
   caution: "#e39b00",
   low: "#1b8a3a"
 };
-
-// Parts of the lake the satellite can't see, because its 300 m pixels
-// there touch land (decided Oct 3). Approximate spots for gray markers.
-const NO_COVERAGE = [
-  { name: "Northern tip of the New Hope arm", lat: 35.830, lng: -78.990 },
-  { name: "Haw River arm", lat: 35.705, lng: -79.070 },
-  { name: "Southern end, toward the dam", lat: 35.688, lng: -79.040 }
-];
-const NO_COVERAGE_COLOR = "#6b7680";
-
-// Cary/Apex drinking-water intake (approximate; context only)
-const INTAKE = { lat: 35.7385, lng: -79.0222 };
 
 // The base map: OpenStreetMap, shown in muted gray by CSS (.basemap-muted
 // in styles.css) so only the verdict and satellite colors stand out
@@ -81,7 +71,6 @@ export function showMap(lake, areas, onPickArea) {
     L.control.zoom({ position: "topleft" }).addTo(map);
     // className: gray map, so only the bloom colors and pins stand out (Oct 19)
     L.tileLayer(BASE_TILES, { maxZoom: 18, className: "basemap-muted", attribution: BASE_CREDIT }).addTo(map);
-    addFixedMarkers(L);
     pinLayer = L.layerGroup().addTo(map);
     hereLayer = L.layerGroup().addTo(map);
 
@@ -194,29 +183,6 @@ function drawYouAreHere() {
   L.marker([place.lat, place.lng], { icon: dot, interactive: true }).addTo(hereLayer).bindTooltip(label);
 
   map.setView([place.lat, place.lng], hereZoom, { animate: false });
-}
-
-// Markers that never change: the satellite's blind spots and the intake
-function addFixedMarkers(L) {
-  for (const spot of NO_COVERAGE) {
-    L.circleMarker([spot.lat, spot.lng], {
-      radius: 6,
-      color: "#ffffff",
-      weight: 2,
-      fillColor: NO_COVERAGE_COLOR,
-      fillOpacity: 0.8
-    }).addTo(map).bindTooltip(`${spot.name}: no satellite coverage`);
-  }
-
-  // The intake, drawn as the droplet icon from the icon sprite
-  const dropIcon = L.divIcon({
-    className: "intake-pin",
-    html: '<svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>',
-    iconSize: [26, 26]
-  });
-  L.marker([INTAKE.lat, INTAKE.lng], { icon: dropIcon, title: "Drinking-water intake" })
-    .addTo(map)
-    .bindTooltip("Cary/Apex drinking-water intake (approximate; context only)");
 }
 
 // The satellite colors under the verdict pins (pins are the

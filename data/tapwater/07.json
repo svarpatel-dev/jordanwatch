@@ -1,0 +1,18 @@
+{
+"070000002":{"uses":"surface","other":["Delaware River"]},
+"070000003":{"uses":"wells","wells":true},
+"070000004":{"uses":"wells","wells":true},
+"070000005":{"uses":"wells","wells":true},
+"070000006":{"uses":"bought-wells","from":["WINNEBAGO, VILLAGE OF"],"wells":true},
+"070000007":{"uses":"wells","wells":true},
+"070000008":{"uses":"wells","wells":true},
+"070000010":{"uses":"bought-wells","from":["WINNEBAGO, VILLAGE OF"],"wells":true},
+"070000013":{"uses":"bought-wells","from":["RICHARDSON CO RWD 2"],"wells":true},
+"070000025":{"uses":"bought-wells","from":["WINNEBAGO, VILLAGE OF"],"wells":true},
+"073104305":{"uses":"wells","wells":true},
+"073117301":{"uses":"wells","wells":true},
+"073117303":{"uses":"wells","wells":true},
+"073117307":{"uses":"bought-wells","from":["THURSTON CO RURAL WATER"],"wells":true},
+"073117308":{"uses":"wells","wells":true},
+"073120301":{"uses":"bought-wells","from":["PENDER, VILLAGE OF"],"wells":true}
+}

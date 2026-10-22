@@ -14,10 +14,11 @@ import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
 import { showMap, showYouAreHere, clearYouAreHere, getMap, recenter, showOnMap,
          refreshMapSize, setSatelliteVisible } from "./map.js";
-import { fetchLakes, nearestLakes, lakeVerdict, closestPointOfLake, JORDAN_LAKE_ID } from "./lakes.js";
-import { showLakePins, updateLakePin } from "./lakemap.js";
+import { fetchLakes, nearestLakes, lakeVerdict, closestPointOfLake, betterLakeNearby,
+         JORDAN_LAKE_ID } from "./lakes.js";
+import { showLakePins, updateLakePin, showWaterSources } from "./lakemap.js";
 import { showLakeDetails } from "./lakecard.js";
-import { fetchLakeExtras, fetchReportRoutes } from "./lakeextras.js";
+import { fetchLakeExtras, fetchReportRoutes, lakesWithBeaches } from "./lakeextras.js";
 import { combineLakeSignals } from "./lakesignals.js";
 import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
 import { getLocation, nearest, distanceKm, findZip, locationAllowed,
@@ -32,6 +33,9 @@ import { showAreaConditions, showLakeConditions, showConditionsMessage,
 import { searchLakes, isZip } from "./lakesearch.js";
 import { showTab, onTab, setUpTabs, openSheet, closeSheet, setUpSheets } from "./screens.js";
 import { setUpWelcome } from "./welcome.js";
+import { favorites, favoriteKey, parseFavorite, isFavorite, toggleFavorite } from "./favorites.js";
+import { findWaterSystems } from "./tapwater.js";
+import { showTapWater, showTapWaterStatus, clearTapWater } from "./tapcard.js";
 import { reportHtml } from "./cardparts.js";
 import { verdictLabel, escapeHtml, shortDateTime } from "./advice.js";
 import { fillStationPicker, showLoading, showResult, showError,
@@ -115,6 +119,15 @@ const lakeExtras = new Map();
 const extrasLoading = new Set();
 // Each state's way to report a bloom (data/report_routes.json), once loaded
 let reportRoutes = null;
+
+// Where the chosen place's tap water likely comes from (tapwater.js), or
+// null until it's looked up (decided Oct 13, built Oct 22)
+let tapWater = null;
+
+// Which lakes have OpenStreetMap beaches, by state: "NC" → a Set of lake
+// ids, for "Go here instead" (decided Oct 21: lakes with beaches first)
+const beachLakes = new Map();
+const beachesLoading = new Set();
 
 // --- Loading the data ---
 
@@ -217,6 +230,9 @@ function render() {
   }
   renderNearLakes(focus);
   renderMapSheet(focus);
+  renderFavorites();
+  // The source lakes' ratings may have changed (or just loaded)
+  if (tapWater) drawTapWater();
 }
 
 // What to show when the user hasn't picked anything: near Jordan Lake its
@@ -249,7 +265,7 @@ function renderArea(focus) {
   }
   // With no place, a line under the block opens the place search
   const onHint = chosenPlace ? null : openPlaceSheet;
-  showAreaConditions(area, latestLake, where, id => pickArea(id, false), onHint);
+  showAreaConditions(area, latestLake, where, id => pickArea(id, false), onHint, starFor("area", area.id));
   showAreaDetails(area, latestLake, reportRoutes);
 
   // The row: every area, best first
@@ -258,9 +274,9 @@ function renderArea(focus) {
   showRowHeading("Jordan Lake areas",
     `${counts.avoid} Avoid · ${counts.caution} Caution · ${counts.low} Low Risk · best first`);
   const tiles = latestLake.ranked.map(a => ({
-    key: a.id, name: a.name, level: a.level, sub: areaTileSub(a)
+    key: a.id, name: a.name, level: a.level, sub: areaTileSub(a), fav: favoriteKey("area", a.id)
   }));
-  showTiles(document.getElementById("tiles"), tiles, area.id, id => pickArea(id, false));
+  showTiles(document.getElementById("tiles"), tiles, area.id, id => pickArea(id, false), TILE_STARS);
 }
 
 function renderLake(focus) {
@@ -274,7 +290,13 @@ function renderLake(focus) {
   const where = focus.why === "nearest"
     ? `nearest covered lake${distance}, ${lake.state}`
     : `${lake.state}${distance}`;
-  showLakeConditions(lake, verdict, where);
+  // Another lake nearby with a better rating (decided Oct 21)
+  const better = betterLake(lake, verdict);
+  showLakeConditions(lake, verdict, where, {
+    star: starFor("lake", lake.id),
+    better,
+    onOpenLake: id => openLake(id, { scroll: true })
+  });
   // Not awaited: the card shows the satellite verdict now, the rest when ready
   loadLakeExtras(lake);
   showLakeDetails(lake, {
@@ -284,7 +306,9 @@ function renderLake(focus) {
     updatedAt: nationwide.updatedAt,
     reportRoutes,
     onShowStations: showStationsForLake,
-    onScan: () => showTab("scan")
+    onScan: () => showTab("scan"),
+    better,
+    onOpenLake: id => openLake(id, { scroll: true })
   });
 
   // The row: the lakes nearest the place (or nearest the lake opened last)
@@ -293,7 +317,7 @@ function renderLake(focus) {
   if (chosenPlace) label = chosenPlace.source === "zip" ? `ZIP ${chosenPlace.zip}` : "you";
   showRowHeading(`Lakes near ${label}`, "Nearest first · tap one to see it");
   showTiles(document.getElementById("tiles"), lakeTiles(center, null), lake.id,
-            id => openLake(Number(id), { fromRow: true }));
+            id => openLake(Number(id), { fromRow: true }), TILE_STARS);
 }
 
 // "Lakes near you": the other lakes around the place, under the Jordan Lake
@@ -315,7 +339,7 @@ function renderNearLakes(focus) {
   document.getElementById("near-lakes-title").textContent =
     chosenPlace ? "Other lakes near you" : "Lakes near Jordan Lake";
   const center = chosenPlace ?? nationwide.lakes.find(l => l.id === JORDAN_LAKE_ID);
-  showTiles(box, lakeTiles(center, JORDAN_LAKE_ID), null, id => openLake(Number(id), { scroll: true }));
+  showTiles(box, lakeTiles(center, JORDAN_LAKE_ID), null, id => openLake(Number(id), { scroll: true }), TILE_STARS);
 }
 
 // The heading and one-line description above the row of tiles
@@ -328,8 +352,136 @@ function showRowHeading(title, description) {
 function lakeTiles(center, skipId) {
   return nearestLakes(nationwide.lakes, center, LAKE_TILES, skipId).map(({ lake, km }) => ({
     key: lake.id, name: lake.name, level: lake.verdict.level,
-    status: lake.verdict.status, sub: lakeTileSub(lake, chosenPlace ? km : null)
+    status: lake.verdict.status, sub: lakeTileSub(lake, chosenPlace ? km : null),
+    fav: favoriteKey("lake", lake.id)
   }));
+}
+
+// --- Favorites (decided Oct 22) ---
+
+// Every tile's star: saved or not, and what a tap does
+const TILE_STARS = { isSaved: isFavorite, onToggle: key => starTapped(key) };
+
+// The star on the conditions block, for an area or a lake
+function starFor(kind, id) {
+  const key = favoriteKey(kind, id);
+  return { key, saved: isFavorite(key), onToggle: () => starTapped(key) };
+}
+
+// A star was tapped: save or remove it, redraw "Your lakes", and set every
+// other star for the same lake on the page to match. Returns true if saved.
+function starTapped(key) {
+  const saved = toggleFavorite(key);
+  renderFavorites();
+  for (const button of document.querySelectorAll(`.star-button[data-fav="${key}"]`)) {
+    button.setAttribute("aria-pressed", String(saved));
+  }
+  return saved;
+}
+
+// "Your lakes": the saved areas and lakes at the top of the Lake tab, in
+// the order they were saved. Hidden until something is saved. An area waits
+// for Jordan Lake's data, a lake for the lake files.
+function renderFavorites() {
+  const tiles = [];
+  for (const key of favorites()) {
+    const { kind, id } = parseFavorite(key);
+    if (kind === "area") {
+      const area = latestLake?.areas.find(a => a.id === id);
+      if (area) tiles.push({ key, fav: key, name: area.name, level: area.level, sub: "Jordan Lake area" });
+    } else {
+      const lake = nationwide?.lakes.find(l => l.id === id);
+      if (lake) {
+        const km = chosenPlace ? distanceToLake(lake, chosenPlace) : null;
+        tiles.push({ key, fav: key, name: lake.name, level: lake.verdict.level, status: lake.verdict.status,
+                     sub: lakeTileSub(lake, km) });
+      }
+    }
+  }
+  document.getElementById("favorites").hidden = tiles.length === 0;
+  const current = selected ?? autoFocus();
+  const selectedKey = current ? favoriteKey(current.kind, current.id) : null;
+  showTiles(document.getElementById("favorite-tiles"), tiles, selectedKey, openFavorite, TILE_STARS);
+}
+
+function openFavorite(key) {
+  const { kind, id } = parseFavorite(key);
+  if (kind === "area") {
+    pickArea(id, true);
+  } else {
+    openLake(id, { scroll: true });
+  }
+}
+
+// --- "Go here instead" for any lake (decided Oct 21) ---
+
+// The nearest lake within about 30 miles with a better rating (lakes.js),
+// preferring lakes with beaches. The beach lists come from each state's
+// extras file: the first time, the states around the lake are loaded and
+// the tab is drawn again.
+function betterLake(lake, verdict) {
+  // A big lake: measured from the part closest to the user
+  const from = chosenPlace && lake.shore ? closestPointOfLake(lake, chosenPlace) : lake;
+  const withBeaches = new Set();
+  for (const ids of beachLakes.values()) {
+    for (const id of ids) withBeaches.add(id);
+  }
+  const better = betterLakeNearby(lake, verdict, nationwide.lakes, withBeaches, from);
+  if (better) loadBeachLakes(better.states);
+  return better;
+}
+
+async function loadBeachLakes(states) {
+  const missing = states.filter(state => !beachLakes.has(state) && !beachesLoading.has(state));
+  if (missing.length === 0) return;
+  for (const state of missing) beachesLoading.add(state);
+  await Promise.all(missing.map(async state => {
+    try {
+      beachLakes.set(state, await lakesWithBeaches(state));
+    } catch (error) {
+      // Without the beach list, lakes there just aren't preferred
+      console.error("Failed to load the beach list for", state, error);
+      beachLakes.set(state, new Set());
+    }
+    beachesLoading.delete(state);
+  }));
+  render();
+}
+
+// --- Your tap water (decided Oct 13; card Oct 22) ---
+
+// Looked up once per place; drawn again whenever the lake ratings change
+async function loadTapWater(place) {
+  tapWater = null;
+  showTapWaterStatus("Looking up your water system…");
+  try {
+    const result = await findWaterSystems(place);
+    // The user may have chosen another place while this one loaded
+    if (place !== chosenPlace) return;
+    tapWater = result;
+    drawTapWater();
+  } catch (error) {
+    console.error("Couldn't look up the water system", error);
+    if (place === chosenPlace) {
+      showTapWaterStatus(`Couldn't look up your water system right now (${error.message}). Try again soon.`);
+    }
+  }
+}
+
+function drawTapWater() {
+  showTapWater(tapWater, nationwide ? nationwide.lakes : null, id => openLake(id, { scroll: true }));
+  drawWaterSources();
+}
+
+// A droplet badge on the map for each lake the first (most likely) water
+// system draws from (decided Oct 22), the same lakes the card lists
+function drawWaterSources() {
+  const covered = tapWater?.systems[0]?.sources?.lakes ?? [];
+  const sources = nationwide
+    ? covered.map(([id, name]) => ({ lake: nationwide.lakes.find(l => l.id === id), name }))
+             .filter(source => source.lake)
+    : [];
+  showWaterSources(getMap(), sources);
 }
 
 // The full map's small sheet: the area or lake being looked at
@@ -663,6 +815,7 @@ function choosePlace(place) {
   pickerBox.hidden = true;
   render();
   loadStationsNear(place);
+  loadTapWater(place);
 }
 
 function nearJordan(place) {
@@ -704,6 +857,9 @@ function clearPlace() {
   rowCenter = null;
   lakeExtras.clear();
   clearStationsNear();
+  tapWater = null;
+  clearTapWater();
+  showWaterSources(getMap(), []);
   document.getElementById("stations-title").textContent = "Live stations: examples in North Carolina";
   pickerBox.hidden = false;
   clearYouAreHere();
@@ -830,6 +986,8 @@ document.addEventListener("keydown", event => {
 // feature lives. Rows for the Lake tab switch tabs first.
 const DIRECTORY = {
   stations: () => showSection("lake", "stations-card"),
+  // With no place yet, the place search first (the card needs a place)
+  tap: () => (chosenPlace ? showSection("lake", "tap-card") : openPlaceSheet()),
   how: () => showSection("more", "about-how"),
   exposed: () => openSheet("sheet-exposed"),
   report: () => showSection("lake", "todo"),

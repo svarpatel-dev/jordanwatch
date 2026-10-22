@@ -67,6 +67,29 @@ export function showLakePins(map, lakes, onOpenLake) {
   addSouthNote(L, map);
 }
 
+// The lakes your tap water likely comes from (decided Oct 22, nationwide):
+// a droplet badge on each source lake, from the same lookup as the "Your
+// tap water" card. Only the lake, never an intake spot (decided Oct 7:
+// intake locations are security-sensitive). sources = [{ lake, name }];
+// an empty list removes the badges.
+let sourceLayer = null;
+export function showWaterSources(map, sources) {
+  const L = window.L;
+  if (!map) return;
+  if (!sourceLayer) sourceLayer = L.layerGroup().addTo(map);
+  sourceLayer.clearLayers();
+  for (const { lake, name } of sources) {
+    const badge = L.divIcon({
+      className: "source-pin",
+      html: '<svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>',
+      iconSize: [26, 26]
+    });
+    L.marker([lake.lat, lake.lng], { icon: badge, title: `Your tap water source: ${name}` })
+      .addTo(sourceLayer)
+      .bindTooltip(`Your tap water likely comes from ${escapeHtml(name)} (context only, not a tap-water rating)`);
+  }
+}
+
 // After a lake card adds rain, river flow and lake level to the satellite
 // verdict (decided Oct 13), its pin shows the same verdict as the card
 export function updateLakePin(lake) {

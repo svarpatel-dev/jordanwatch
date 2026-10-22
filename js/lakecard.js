@@ -11,6 +11,7 @@ import { shortDate, escapeHtml, VERDICT_NAMES } from "./advice.js";
 import { whyRowsHtml, todoHtml, reportHtml, sourcesHtml, coverageHtml, metaChipsHtml, verdictBadge,
          cardHeadHtml, ALL_STATES_URL } from "./cardparts.js";
 import { icon } from "./icons.js";
+import { showHistoryChart, lakeHistory } from "./history.js";
 
 // Where each satellite reading comes from
 const SOURCE_NAMES = {
@@ -35,8 +36,12 @@ const MILES_PER_KM = 0.621371;
 //   extrasFailed    true if the other signals couldn't be put together
 //   onShowStations  (lake, element) => shows the live stations near the lake
 //   onScan          () => opens the Scan tab
+//   better          betterLakeNearby() (lakes.js): a lake nearby with a
+//                   better rating, { lake: null } if none, or null
+//   onOpenLake      (id) => opens another lake
 export function showLakeDetails(lake, options) {
-  const { satellite, full, updatedAt, reportRoutes, extrasFailed, onShowStations, onScan } = options;
+  const { satellite, full, updatedAt, reportRoutes, extrasFailed, onShowStations, onScan,
+          better = null, onOpenLake = null } = options;
   const verdict = full ?? satellite;
   const heading = verdict.level
     ? `Why ${escapeHtml(lake.name)} is at ${VERDICT_NAMES[verdict.level]}`
@@ -67,13 +72,17 @@ export function showLakeDetails(lake, options) {
     ${coverageHtml(signals, verdict.level !== null)}
     ${whyRowsHtml(rows)}
     ${loading}
+    <div class="trend-chart"></div>
     ${sourcesHtml(updatedAt, true)}
   `;
+  // The last 30 days (decided Oct 21), drawn once its state's history loads
+  showHistoryChart(document.querySelector("#why .trend-chart"), () => lakeHistory(lake));
 
   const todo = document.getElementById("todo");
   todo.innerHTML = `
     ${cardHeadHtml("What to do", "todo")}
     ${todoHtml(verdict)}
+    ${betterLakeHtml(better)}
     ${full ? beachesHtml(full) : ""}
     ${reportHtml(lake.state, reportRoutes)}
     ${crossStateNote(lake)}
@@ -84,6 +93,8 @@ export function showLakeDetails(lake, options) {
     <div class="lake-card-stations"></div>
   `;
   todo.querySelector(".lake-scan-button").addEventListener("click", onScan);
+  const betterButton = todo.querySelector(".better-lake-button");
+  if (betterButton && onOpenLake) betterButton.addEventListener("click", () => onOpenLake(better.lake.id));
   const stationsBox = todo.querySelector(".lake-card-stations");
   todo.querySelector(".lake-stations-button").addEventListener("click", () => onShowStations(lake, stationsBox));
 }
@@ -155,6 +166,24 @@ function goInsteadHtml(beach) {
       <p class="pick-label">${icon("arrow-right")} Go here instead</p>
       <p class="pick-main"><span><strong>${name}</strong>${distance}</span>${verdictBadge(beach)}</p>
       <p class="small">Wind isn't pushing algae toward it</p>
+    </div>
+  `;
+}
+
+// Another lake within about 30 miles with a better rating (decided Oct 21),
+// or one line saying there isn't one. Its rating is from its pin: its own
+// rain and wind are checked when it's opened.
+function betterLakeHtml(better) {
+  if (!better) return "";
+  if (!better.lake) {
+    return `<p class="note">${icon("info")} No lake within 30 miles has a better rating today</p>`;
+  }
+  const beach = better.hasBeach ? " · has beaches" : "";
+  return `
+    <div class="pick-card">
+      <p class="pick-label">${icon("arrow-right")} Go here instead</p>
+      <p class="pick-main"><span><strong>${escapeHtml(better.lake.name)}</strong> · ${describeDistance(better.km)}${beach}</span>${verdictBadge(better.lake.verdict)}</p>
+      <button type="button" class="button-line better-lake-button">Open ${escapeHtml(better.lake.name)} ${icon("chevron-right")}</button>
     </div>
   `;
 }

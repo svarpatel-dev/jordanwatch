@@ -5,6 +5,7 @@
 import { icon, TREND_ICONS } from "./icons.js";
 import { shortDate, shortDateTime, leastAffectedText, VERDICT_NAMES } from "./advice.js";
 import { compactCells } from "./lake.js";
+import { showHistoryChart, areaHistory } from "./history.js";
 import { whyRowsHtml, todoHtml, reportHtml, stationBadge, sourcesHtml, cardHeadHtml, metaChipsHtml,
          infoRowHtml, readingsGridHtml } from "./cardparts.js";
 
@@ -137,9 +138,13 @@ export function showAreaDetails(area, lake, reportRoutes) {
     ${area.noRecentSatellite ? `<p class="note">${icon("warning")} ${NO_RECENT_SATELLITE}</p>` : ""}
     ${whyRowsHtml(rows)}
     ${trendRow(area.trend)}
+    <div class="trend-chart"></div>
     ${intakeRow(lake.intake)}
     ${sourcesHtml(lake.checkedAt)}
   `;
+  // The last 30 days at this area's satellite point (decided Oct 21). An
+  // area with no point of its own (Robeson Creek) uses its nearest one.
+  showHistoryChart(document.querySelector("#why .trend-chart"), () => areaHistory(area.pointId));
 
   document.getElementById("todo").innerHTML = `
     ${cardHeadHtml("What to do", "todo")}

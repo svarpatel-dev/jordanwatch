@@ -326,12 +326,12 @@ body.map-open { overflow: hidden; }
   background: var(--blue); border: 3px solid #ffffff; border-radius: 50%;
   box-shadow: 0 0 0 8px rgba(11, 92, 173, 0.18);
 }
-.intake-pin {
+.source-pin {
   display: grid; place-items: center;
   border: 1px solid var(--line); border-radius: 50%;
   background: var(--paper); color: var(--blue);
 }
-.intake-pin .i { width: 16px; height: 16px; }
+.source-pin .i { width: 16px; height: 16px; }
 .map-note {
   max-width: 220px; padding: 4px 8px; border-radius: 6px;
   background: rgba(255, 255, 255, 0.94); font-size: 11px; color: var(--ink-soft);
@@ -565,7 +565,7 @@ dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
   }
   .lake-tab > * { grid-column: 2; margin: 0; }
   .lake-tab > .sat-card {
-    grid-column: 1; grid-row: 1 / span 9;
+    grid-column: 1; grid-row: 1 / span 12;   /* every section on the right (12 with Thursday's two) */
     position: sticky; top: 72px;
   }
   .lake-tab #map { height: calc(100vh - 290px); min-height: 420px; }
@@ -672,3 +672,57 @@ dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
 /* If exposed: short steps instead of paragraphs */
 .steps { margin: 4px 0 6px; padding-left: 20px; font-size: 14.5px; }
 .steps li + li { margin-top: 2px; }
+
+/* --- Thursday (Oct 22): favorites, "Go here instead" for any lake, trend
+   charts, tap water --- */
+
+/* The favorites star: an outline star, filled when saved (aria-pressed) */
+.star-button {
+  display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: inherit;
+}
+.star-button[aria-pressed="true"] .i { fill: currentColor; }
+.now-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.now-star { margin: -8px -8px 0 0; }
+/* Each tile with its star in the top-right corner */
+.tile-wrap { position: relative; flex: none; scroll-snap-align: start; }
+.tile-star { position: absolute; top: 0; right: 0; width: 34px; height: 34px; color: var(--ink-soft); }
+.tile-star[aria-pressed="true"] { color: var(--navy); }
+.favorites { border-top: 1px solid var(--line); }
+
+/* Another lake with a better rating: a button like Jordan Lake's areas */
+.now-go-lake { margin-top: 8px; }
+.better-lake-button { margin-top: 8px; }
+
+/* The trend chart: the WHO bands in the verdict colors, light, behind the dots */
+.trend-chart { margin-top: 12px; }
+.trend-head { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.trend-empty { margin-top: 4px; padding: 10px; border-radius: 8px; background: var(--page); font-size: 13px; color: var(--ink-soft); }
+.trend-svg { display: block; width: 100%; height: auto; margin-top: 4px; overflow: visible; }
+.trend-svg .band-low { fill: var(--low); opacity: 0.12; }
+.trend-svg .band-caution { fill: var(--caution); opacity: 0.16; }
+.trend-svg .band-avoid { fill: var(--avoid); opacity: 0.12; }
+.trend-svg .grid { stroke: var(--line); stroke-width: 1; }
+.trend-svg .tick { font-size: 9.5px; fill: var(--ink-soft); }
+.trend-svg .trend-line { fill: none; stroke: var(--navy); stroke-width: 2; stroke-linejoin: round; }
+.trend-svg .dot-reading { fill: var(--navy); stroke: var(--paper); stroke-width: 2; }
+.trend-svg .dot-none { fill: var(--paper); stroke: var(--navy); stroke-width: 2; }
+.trend-svg .dot-hit { fill: transparent; }
+.trend-svg .trend-dot:hover .dot-reading, .trend-svg .trend-dot:hover .dot-none { stroke: var(--blue); }
+.trend-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0; padding: 0; list-style: none; font-size: 11.5px; color: var(--ink-soft); }
+.trend-key li { display: inline-flex; align-items: center; gap: 5px; }
+.trend-key i { width: 10px; height: 10px; border-radius: 2px; }
+.key-low { background: color-mix(in srgb, var(--low) 30%, #ffffff); }
+.key-caution { background: color-mix(in srgb, var(--caution) 35%, #ffffff); }
+.key-avoid { background: color-mix(in srgb, var(--avoid) 30%, #ffffff); }
+.key-none { border: 2px solid var(--navy); border-radius: 50% !important; }
+.trend-table { margin-top: 4px; border-collapse: collapse; font-size: 13px; }
+.trend-table th, .trend-table td { padding: 2px 12px 2px 0; text-align: left; }
+.trend-table th { font-weight: 600; color: var(--ink-soft); }
+
+/* Your tap water */
+#tap-card .pick-card { margin-top: 0; }
+.tap-lakes li .icon-button { margin: 0; }
+.tap-chips { margin-top: 10px; }
+.tap-none { display: flex; align-items: center; gap: 6px; font-weight: 600; }

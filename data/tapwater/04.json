@@ -1,0 +1,16 @@
+{
+"040000002":{"uses":"wells","wells":true},
+"041200001":{"uses":"wells","wells":true},
+"041200002":{"uses":"wells","wells":true},
+"041200003":{"uses":"wells","wells":true},
+"041200004":{"uses":"wells","wells":true},
+"041210001":{"uses":"wells","wells":true},
+"042800001":{"uses":"wells","wells":true},
+"042800002":{"uses":"wells","wells":true},
+"042800003":{"uses":"wells","wells":true},
+"042800004":{"uses":"wells","wells":true},
+"043700056":{"uses":"wells","wells":true},
+"043740039":{"uses":"surface","other":["Oconaluftee River"]},
+"043740040":{"uses":"bought-wells","from":["WHITTIER SANITARY DISTRICT"],"wells":true},
+"043740043":{"uses":"wells","wells":true}
+}

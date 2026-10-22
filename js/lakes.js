@@ -262,6 +262,43 @@ export function nearestLakes(lakes, point, count, skipId = null) {
     .slice(0, count);
 }
 
+// --- "Go here instead" for any lake (decided Oct 21) ---
+
+// Search this far for a lake with a better rating (about 30 miles)
+export const BETTER_LAKE_KM = 48;
+const LEVEL_ORDER = ["low", "caution", "avoid"];
+
+// For a lake at Avoid or Caution: the nearest covered lake within about 30
+// miles whose rating is better, preferring lakes with mapped beaches
+// (beachLakeIds = a Set of lake ids that have OpenStreetMap beaches).
+// verdict = the lake's own verdict (all its signals when they've loaded).
+// from = where to measure from: the lake's middle, or for a big lake the
+// part closest to the user. Jordan Lake's 10 areas keep their own
+// "Go here instead" (lake.js); this is for every other lake.
+// Returns null when the lake isn't at Avoid or Caution; otherwise
+// { lake, km, hasBeach } for the pick, or { lake: null } when no lake
+// nearby is better, plus states: the states of every lake it looked at
+// (so the page can load their beach lists and ask again).
+export function betterLakeNearby(lake, verdict, lakes, beachLakeIds, from = lake) {
+  if (verdict.level !== "avoid" && verdict.level !== "caution") return null;
+  const rank = LEVEL_ORDER.indexOf(verdict.level);
+
+  const near = lakes
+    .filter(other => other.id !== lake.id && other.verdict.status === "ok")
+    .map(other => ({ lake: other, km: lakeDistanceKm(other, from) }))
+    .filter(({ km }) => km <= BETTER_LAKE_KM);
+  const states = [...new Set(near.map(({ lake: other }) => other.state))];
+
+  const better = near
+    .filter(({ lake: other }) => LEVEL_ORDER.indexOf(other.verdict.level) < rank)
+    .map(pick => ({ ...pick, hasBeach: beachLakeIds.has(pick.lake.id) }))
+    // Lakes with beaches first, then the nearest (true - false = 1, like
+    // sorting on Python's (not has_beach, km))
+    .sort((a, b) => (b.hasBeach - a.hasBeach) || (a.km - b.km));
+
+  return better.length > 0 ? { ...better[0], states } : { lake: null, states };
+}
+
 // To the lake's middle, or for a big lake to the nearest point along its
 // shore (Lake Michigan's middle is 150 miles from Chicago)
 function lakeDistanceKm(lake, point) {

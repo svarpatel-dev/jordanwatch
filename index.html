@@ -54,6 +54,14 @@
         </ol>
       </section>
 
+      <!-- Your lakes (decided Oct 22): the lakes and areas starred on this
+           phone, first. Hidden until one is saved (main.js). -->
+      <section id="favorites" class="row-wrap favorites" aria-labelledby="favorites-title" hidden>
+        <h2 id="favorites-title" class="row-title">Your lakes</h2>
+        <p class="row-caption">Saved on this phone · tap one to see it</p>
+        <div id="favorite-tiles" class="tiles"></div>
+      </section>
+
       <div id="now" class="now now-none" aria-live="polite">
         <p class="now-line">Loading today's ratings…</p>
       </div>
@@ -117,6 +125,17 @@
         <p class="small">Shows once the rating loads.</p>
       </section>
 
+      <!-- Your tap water (decided Oct 13, card Oct 22): where the chosen
+           place's water likely comes from. Shown once a place is chosen. -->
+      <section id="tap-card" class="card" aria-labelledby="tap-title" hidden>
+        <h2 id="tap-title">
+          <svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>
+          Your tap water
+        </h2>
+        <p class="card-desc">Where your water likely comes from. Context only.</p>
+        <div id="tap-body"></div>
+      </section>
+
       <section id="near-lakes-card" class="card" aria-labelledby="near-lakes-title">
         <h2 id="near-lakes-title">Lakes near Jordan Lake</h2>
         <p class="card-desc">Closest lakes. Tap one for details.</p>
@@ -166,6 +185,12 @@
             <svg class="i i-md" aria-hidden="true"><use href="#i-gauge"></use></svg>
             <span><strong>Live stations</strong>
               <small>Live USGS sensors near your place</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <li><button type="button" data-go="tap">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>
+            <span><strong>Your tap water</strong>
+              <small>Which lake your water likely comes from</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="how">
@@ -275,6 +300,7 @@
           <li>Satellite: U.S. EPA CyAN, with NASA, NOAA and USGS</li>
           <li>Rain, rivers, lake level, stations: USGS Water Data</li>
           <li>Wind: Open-Meteo</li>
+          <li>Tap water: EPA water system areas and records (SDWIS)</li>
           <li>Map and beaches: © OpenStreetMap contributors, ODbL</li>
           <li>ZIP locations: U.S. Census ZCTA Gazetteer</li>
           <li>State standards: EPA Criteria Search Tool, state rules</li>

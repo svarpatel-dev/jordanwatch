@@ -28,7 +28,13 @@ Files:
                             ("i") and its newest per-lake check ("c"), plus
                             this script's own bookkeeping (when each lake was
                             checked, the pace)
-Both are written with one lake per line, so git only stores what changed.
+  data/history/lakes/NC.json (and one file per state)
+                            each lake's daily history for the trend charts
+                            (decided Oct 21): one value per day the per-lake
+                            check had a usable look, last 120 days. Each
+                            check returns 14 days, so the history grows by
+                            itself as lakes are checked again.
+All are written with one lake per line, so git only stores what changed.
 
 Run locally:  python3 scripts/fetch_lakes.py   (needs Pillow and NumPy; the
               per-lake check stops after BUDGET_MINUTES)
@@ -53,6 +59,17 @@ LAKE_DATA_URL = ("https://cyan.epa.gov/waterbody/data/?OBJECTID={id}"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "lakes"
 INDEX_FILE = DATA_DIR / "index.json"
 READINGS_FILE = DATA_DIR / "readings.json"
+HISTORY_DIR = DATA_DIR.parent / "history" / "lakes"
+
+# Daily history (decided Oct 21): kept this many days. Each day is saved as
+# two numbers, [days since Jan 1, 1970, satellite level 0-253], because a
+# level fits in 3 digits (cells/mL = js/history.js turns it back, the same
+# formula as cyan_images.py). Level 0 = below detection.
+HISTORY_DAYS = 120
+# The day's value is the level that at least 5% of what the satellite saw
+# reached (the 95th percentile). It's the same 5% as the verdict rules, so
+# the chart's line sits in the band of the verdict that day would give.
+EPOCH = date(1970, 1, 1)
 
 # Image pass
 DAILY_DAYS = 7           # EPA keeps only a few recent images; readings.json remembers older ones
@@ -85,6 +102,7 @@ WHO_MODERATE_RISK = 100000
 BLOOM_SHARE = 0.05           # 5% of the lake the satellite saw
 MIN_BLOOM_PIXELS = 2
 GOOD_LOOK_SHARE = 0.5        # a day that saw at least half the lake
+HISTORY_SHARE = BLOOM_SHARE  # the history's daily value (see HISTORY_DAYS)
 
 # Big lakes get a point every 5 km along their shore, so "near you" can
 # measure to the shore instead of the middle (Lake Michigan's middle is
@@ -244,6 +262,26 @@ def summarize_check(days, old, checked_at):
     return result
 
 
+def history_days(days, outside, lake_pixels):
+    """The days worth charting from one check: {days since 1970: level}. The
+    same days summarize_check would use (a warning, or a look at half the
+    lake), each as the level at least 5% of what the satellite saw reached."""
+    found = {}
+    for day, raw in days.items():
+        counts = raw.copy()
+        counts[0] -= outside
+        stats = bloom_stats(counts)
+        seen = int(counts[0]) + stats["detected"]
+        if seen <= 0 or not (is_warning(stats, seen) or seen >= GOOD_LOOK_SHARE * lake_pixels):
+            continue
+        # How many pixels are at each level or higher (a running total from
+        # the top, like reversed(itertools.accumulate(...)) in plain Python)
+        at_or_above = np.cumsum(counts[:254][::-1])[::-1]
+        reached = np.nonzero(at_or_above >= HISTORY_SHARE * seen)[0]
+        found[(day - EPOCH).days] = int(reached.max()) if len(reached) else 0
+    return found
+
+
 def due_lakes(lakes, state, now):
     """Lakes to check, most useful first. Never-checked lakes come first:
     the southern ones the image can't see, then the ones with no image
@@ -309,6 +347,10 @@ def check_pass(lakes, state, now):
         in_a_row = 0
         entry = state["lakes"].setdefault(str(lake["id"]), {})
         entry["c"] = summarize_check(days, entry.get("c"), checked_at)
+        # The trend chart's days: this check's, added to the ones saved before
+        if entry["c"]["lakePixels"] > 0:
+            saved = state["history"].setdefault(str(lake["id"]), {})
+            saved.update(history_days(days, entry["c"]["outside"], entry["c"]["lakePixels"]))
         checked += 1
 
         # A slow answer can mean EPA is busy: give it as long again to recover
@@ -388,6 +430,41 @@ def load_state():
     return state
 
 
+def load_history():
+    """Every lake's saved daily history: {lake id: {day number: level}}."""
+    history = {}
+    for path in HISTORY_DIR.glob("*.json"):
+        try:
+            saved = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            continue
+        for lake_id, pairs in saved["lakes"].items():
+            history[lake_id] = dict(zip(pairs[0::2], pairs[1::2]))
+    return history
+
+
+def save_history(history, lakes, today):
+    """One file per state (a lake card loads only its own state's), each lake
+    as one line of [day, level, day, level, ...], oldest first, last 120 days."""
+    oldest = (today - EPOCH).days - HISTORY_DAYS
+    states = {str(lake["id"]): lake["state"] for lake in lakes}
+    by_state = {}
+    for lake_id, days in history.items():
+        kept = sorted(day for day in days if day >= oldest)
+        if kept and lake_id in states:
+            by_state.setdefault(states[lake_id], {})[lake_id] = [x for day in kept for x in (day, days[day])]
+    for state_name, rows in sorted(by_state.items()):
+        rows = dict(sorted(rows.items(), key=lambda pair: int(pair[0])))
+        save(HISTORY_DIR / f"{state_name}.json", {
+            "source": "EPA CyAN per-lake pixel counts (about 300 m pixels)",
+            "note": ("Each lake: [day, level, day, level, ...]. day = days since 1970-01-01 (a satellite "
+                     "image day); level = EPA's satellite level (0-253) that at least 5% of the pixels "
+                     "the satellite saw reached; 0 = below detection. cells/mL = 10^(0.012 x level - 4.2) "
+                     "x 100,000,000. Days with no usable look are left out. Last 120 days."),
+        }, "lakes", rows)
+    return by_state
+
+
 def saved_lakes():
     """The lake list from the last index.json (id, name, lat), if the outlines can't be downloaded."""
     index = json.loads(INDEX_FILE.read_text())
@@ -440,6 +517,7 @@ def save(path, header, big_key, items):
 def main():
     now = datetime.now(timezone.utc).replace(tzinfo=None)   # UTC, written without "+00:00"
     state = load_state()
+    state["history"] = load_history()
 
     # 1. Image pass. If the outlines or the images can't be downloaded, skip
     #    it: the warnings from earlier runs stay in readings.json.
@@ -465,6 +543,8 @@ def main():
     check_pass(lakes, state, now)
 
     save_state(state)
+    by_state = save_history(state["history"], lakes, now.date())
+    print(f"Saved the daily history: {sum(len(rows) for rows in by_state.values())} lakes in {len(by_state)} state files")
     counts = {"image warnings": sum("i" in e for e in state["lakes"].values()),
               "checked lakes": sum("c" in e for e in state["lakes"].values())}
     print(f"Saved {READINGS_FILE.name}: {counts}")

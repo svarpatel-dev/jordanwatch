@@ -36,11 +36,12 @@ jobs:
 
       # The lake bot may have committed since this run started, so get its
       # commit first (git pull --rebase), then push
+      # cyan.json + the ten points' daily history for the trend charts (Oct 21)
       - name: Commit cyan.json if it changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add cyan.json
+          git add cyan.json data/history/jordan.json
           git diff --cached --quiet && exit 0
           git commit -m "Update CyAN satellite data"
           git pull --rebase

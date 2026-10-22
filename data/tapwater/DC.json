@@ -1,0 +1,6 @@
+{
+"DC0000001":{"uses":"surface","other":["Potomac River","Dalecarlia Reservoir","Georgetown Reservoir","Mcmillan Reservoir"]},
+"DC0000002":{"uses":"bought-surface","other":["Potomac River","Dalecarlia Reservoir","Georgetown Reservoir","Mcmillan Reservoir"],"from":["WASHINGTON AQUEDUCT DIVISION."]},
+"DC0000003":{"uses":"bought-surface","other":["Potomac River","Dalecarlia Reservoir","Georgetown Reservoir","Mcmillan Reservoir"],"from":["D.C. WATER AND SEWER AUTHORITY"]},
+"DC0000004":{"uses":"bought-surface","other":["Potomac River","Dalecarlia Reservoir","Georgetown Reservoir","Mcmillan Reservoir"],"from":["D.C. WATER AND SEWER AUTHORITY"]}
+}

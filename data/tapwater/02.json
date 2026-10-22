@@ -1,0 +1,9 @@
+{
+"020000001":{"uses":"wells","wells":true},
+"020000004":{"uses":"wells","wells":true},
+"020000005":{"uses":"surface","other":["Saint Lawrence River"]},
+"020000008":{"uses":"bought-surface","from":["NY0000001"]},
+"020000012":{"uses":"wells","wells":true},
+"020000016":{"uses":"wells","wells":true},
+"020011102":{"uses":"wells","wells":true}
+}

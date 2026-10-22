@@ -31,6 +31,10 @@ const TODO_DESCRIPTION = "What's OK today, and how to report a bloom.";
 const PILL_NAMES = {
   satellite: "Satellite",
   "rain and river flow": "Rain/river",
+  // Bug 16 (found Oct 22): with only one of the two gauges, lakesignals.js
+  // labels the signal "rain" or "river flow", and the pill said "undefined"
+  rain: "Rain/river",
+  "river flow": "Rain/river",
   "lake level": "Lake level",
   wind: "Wind",
   beaches: "Beaches"

@@ -1,0 +1,5 @@
+{
+"010106001":{"uses":"wells","wells":true},
+"010109005":{"uses":"bought-surface","other":["River Reservoir","Stony Brook Reservoir","Poquonnock Reservoir","Billings Avery Brook","Morgan Pond Reservoir","Ledyard Reservoir","Poheganut Reservoir","Smith Lake","Buddington Pond"],"from":["NORWICH PUBLIC UTILITIES","GROTON UTILITIES"]},
+"010307001":{"uses":"wells","wells":true}
+}

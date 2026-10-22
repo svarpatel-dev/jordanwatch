@@ -30,8 +30,9 @@ let firstDraw = true;
 // A Jordan Lake area. area = one of computeLakeVerdicts()'s areas; lake =
 // the whole result (for the all-Avoid line); where = the small words after
 // its name, e.g. "nearest area, 6.3 miles"; onPick(id) opens another area;
-// onHint (only when no place is chosen) opens the place search
-export function showAreaConditions(area, lake, where, onPick, onHint = null) {
+// onHint (only when no place is chosen) opens the place search; star =
+// { key, saved, onToggle } for the favorites star (decided Oct 22), or null
+export function showAreaConditions(area, lake, where, onPick, onHint = null, star = null) {
   const meta = [];
   if (area.imageDate) {
     const cells = area.cellsPerMl === 0 ? "below detection" : `${area.cellsPerMl.toLocaleString()} cells/mL`;
@@ -63,7 +64,7 @@ export function showAreaConditions(area, lake, where, onPick, onHint = null) {
          <span>Showing Jordan Lake · Search your ZIP or a lake</span></button>`
     : "";
 
-  draw(area, `<strong>${area.name}</strong> <span>${where}</span>`, meta, allAvoid, go + hint);
+  draw(area, `<strong>${area.name}</strong> <span>${where}</span>`, meta, allAvoid, go + hint, star, area.name);
   const goButton = document.querySelector("#now .now-go");
   if (goButton) goButton.addEventListener("click", () => onPick(goButton.dataset.area));
   const hintButton = document.querySelector("#now .now-hint");
@@ -71,8 +72,13 @@ export function showAreaConditions(area, lake, where, onPick, onHint = null) {
 }
 
 // Any other lake. verdict = lakeVerdict() or combineLakeSignals() (lakes.js,
-// lakesignals.js); where = e.g. "CA, 2.1 miles"
-export function showLakeConditions(lake, verdict, where) {
+// lakesignals.js); where = e.g. "CA, 2.1 miles". options:
+//   star        { key, saved, onToggle } for the favorites star, or null
+//   better      betterLakeNearby() (lakes.js): another lake with a better
+//               rating within about 30 miles, { lake: null } if none, or
+//               null when the lake isn't at Avoid or Caution
+//   onOpenLake  (id) => opens another lake
+export function showLakeConditions(lake, verdict, where, { star = null, better = null, onOpenLake = null } = {}) {
   const meta = [];
   if (verdict.reading) {
     const highest = verdict.reading.max ? ` · peak ${compactCells(verdict.reading.max)} cells/mL` : "";
@@ -81,14 +87,28 @@ export function showLakeConditions(lake, verdict, where) {
 
   // A beach on the same lake the wind isn't pushing algae toward (decided Oct 13)
   const beach = verdict.goInstead;
-  const go = beach
+  const beachLine = beach
     ? `<p class="now-go now-go-text">Go to <strong>${beach.name ? escapeHtml(beach.name) : "an unnamed beach"}</strong>
          instead · ${verdictLabel(beach)} · wind not pushing algae there</p>`
     : "";
+  // Another lake nearby with a better rating (decided Oct 21), or a short
+  // line saying there isn't one
+  let otherLake = "";
+  if (better?.lake) {
+    otherLake = `<button type="button" class="now-go now-go-lake" data-lake="${better.lake.id}">
+         <span>Try <strong>${escapeHtml(better.lake.name)}</strong> instead (${verdictLabel(better.lake.verdict)} · ${describeDistance(better.km)})</span>
+         ${icon("chevron-right")}
+       </button>`;
+  } else if (better) {
+    otherLake = `<p class="now-line">No lake nearby has a better rating today</p>`;
+  }
 
   // No verdict: the short reason (the whole sentence is on the Why card)
   const why = verdict.level ? "" : `<p class="now-line">${escapeHtml(verdict.satelliteHeadline)}</p>`;
-  draw(verdict, `<strong>${escapeHtml(lake.name)}</strong> <span>${where}</span>`, meta, why, go);
+  draw(verdict, `<strong>${escapeHtml(lake.name)}</strong> <span>${where}</span>`, meta, why, beachLine + otherLake,
+       star, lake.name);
+  const lakeButton = document.querySelector("#now .now-go-lake");
+  if (lakeButton && onOpenLake) lakeButton.addEventListener("click", () => onOpenLake(Number(lakeButton.dataset.lake)));
 }
 
 // While the data loads, or when it can't load
@@ -99,8 +119,9 @@ export function showConditionsMessage(message) {
 }
 
 // The block itself. item has a level (or a status when there's no
-// verdict); the parts are already HTML.
-function draw(item, whereHtml, meta, extraLine, goHtml) {
+// verdict); the parts are already HTML. star = { key, saved, onToggle } or null;
+// name = the area's or lake's plain name (for the star's label).
+function draw(item, whereHtml, meta, extraLine, goHtml, star = null, name = "") {
   const block = document.getElementById("now");
   const enter = firstDraw ? " now-enter" : "";
   firstDraw = false;
@@ -109,13 +130,34 @@ function draw(item, whereHtml, meta, extraLine, goHtml) {
   const word = item.level ? VERDICT_NAMES[item.level] : verdictLabel(item);
 
   block.innerHTML = `
-    <p class="now-where">${whereHtml}</p>
+    <div class="now-top">
+      <p class="now-where">${whereHtml}</p>
+      ${star ? starButtonHtml(star.saved, name, "now-star", star.key) : ""}
+    </div>
     <p class="now-verdict${item.level ? "" : " now-verdict-none"}">${word}</p>
     <p class="now-meta">${meta.join("")}</p>
     ${extraLine}
     ${chipsHtml(item)}
     ${goHtml}
   `;
+  if (star) {
+    const button = block.querySelector(".now-star");
+    button.addEventListener("click", () => setStarPressed(button, star.onToggle()));
+  }
+}
+
+// The favorites star (decided Oct 22): an outline star, filled when saved.
+// aria-pressed tells screen readers whether it's on, like a checkbox.
+// fav = the favorites key, kept on a tile's star (data-fav) for its tap.
+function starButtonHtml(saved, name, className, fav = "") {
+  return `<button type="button" class="star-button ${className}" aria-pressed="${saved}" data-fav="${fav}"
+    aria-label="Save ${escapeHtml(name)} to Your lakes" title="${saved ? "Saved to Your lakes" : "Save to Your lakes"}">${icon("star", "md")}</button>`;
+}
+
+// After a tap: show the new state (onToggle returns true when it's now saved)
+function setStarPressed(button, saved) {
+  button.setAttribute("aria-pressed", String(saved));
+  button.title = saved ? "Saved to Your lakes" : "Save to Your lakes";
 }
 
 // What to do, as a 2x2 grid of chips (decided Oct 21): an icon and 2-3
@@ -130,19 +172,27 @@ function chipsHtml(item) {
   return `<ul class="now-chips" aria-label="What to do: ${sentence}" title="${sentence}">${items.join("")}</ul>`;
 }
 
-// A row of tiles. items = [{ key, name, level, status, sub }],
-// selectedKey = the one being looked at; onPick(key) when one is tapped
-export function showTiles(container, items, selectedKey, onPick) {
+// A row of tiles. items = [{ key, name, level, status, sub, fav }],
+// selectedKey = the one being looked at; onPick(key) when one is tapped.
+// star = { isSaved(fav), onToggle(fav) } adds a favorites star to each tile
+// (fav = its favorites key, e.g. "lake:2300042"); null for no stars.
+export function showTiles(container, items, selectedKey, onPick, star = null) {
   container.innerHTML = items.map(item => `
-    <button type="button" class="tile" data-key="${item.key}" aria-pressed="${item.key === selectedKey}">
-      <span class="dot" style="--dot: ${dotColor(item)}"></span>
-      <strong>${escapeHtml(item.name)}</strong>
-      <span>${verdictLabel(item)}</span>
-      <small>${item.sub}</small>
-    </button>
+    <div class="tile-wrap">
+      <button type="button" class="tile" data-key="${item.key}" aria-pressed="${item.key === selectedKey}">
+        <span class="dot" style="--dot: ${dotColor(item)}"></span>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${verdictLabel(item)}</span>
+        <small>${item.sub}</small>
+      </button>
+      ${star && item.fav ? starButtonHtml(star.isSaved(item.fav), item.name, "tile-star", item.fav) : ""}
+    </div>
   `).join("");
   for (const tile of container.querySelectorAll(".tile")) {
     tile.addEventListener("click", () => onPick(tile.dataset.key));
+  }
+  for (const button of container.querySelectorAll(".tile-star")) {
+    button.addEventListener("click", () => setStarPressed(button, star.onToggle(button.dataset.fav)));
   }
 }
 

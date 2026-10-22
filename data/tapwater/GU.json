@@ -1,0 +1,7 @@
+{
+"GU0000001":{"uses":"surface","other":["Ugum River"]},
+"GU0000003":{"uses":"bought-surface","other":["Fena Reservoir"],"from":["U.S. NAVY WATER SYSTEM"]},
+"GU0000006":{"uses":"wells","wells":true},
+"GU0000009":{"uses":"wells","wells":true},
+"GU0000010":{"uses":"surface","other":["Fena Reservoir"],"from":["GWA CENTRAL WATER SYSTEM"]}
+}

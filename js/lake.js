@@ -102,6 +102,8 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
       noRecentSatellite: signals[0].noRecentSatellite,
       trend: satelliteTrend(point),
       borrowedFrom: borrowed ? point?.name ?? null : null,
+      // Which satellite point's daily history the trend chart shows (Oct 21)
+      pointId: area.cyanPointId,
       reasons: signals
     };
   });

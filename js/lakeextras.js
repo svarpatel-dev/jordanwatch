@@ -183,6 +183,17 @@ async function lakeInfo(lake, near) {
   };
 }
 
+// The lakes in a state with at least one OpenStreetMap beach, as a Set of
+// lake ids (like a Python set), for "Go here instead" (decided Oct 21:
+// lakes with beaches first). Uses the same state file as the lake cards.
+export async function lakesWithBeaches(state) {
+  const file = await stateFile(state);
+  const ids = Object.entries(file.lakes)
+    .filter(([, row]) => Array.isArray(row[6]) && row[6].length > 0)
+    .map(([id]) => Number(id));
+  return new Set(ids);
+}
+
 // One file per state, loaded once (the browser keeps it too)
 function stateFile(state) {
   if (!stateFiles[state]) {
