@@ -150,9 +150,9 @@ main { max-width: 1100px; margin: 0 auto; }
 .now-enter { animation: now-fill 300ms ease-out; }
 @keyframes now-fill { from { filter: saturate(0); } }
 
-/* --- The first-open intro (decided Oct 24): full screen on a phone, a
-   centered card on a laptop. Real screenshots with numbered arrows; the
-   numbers in each list match the ones on the picture. --- */
+/* --- The first-open intro (decided Oct 24): one welcome card, full
+   screen on a phone and centered on a laptop; the guided tour below
+   explains each part on the real app. --- */
 .intro-button {
   flex: none; display: grid; place-items: center; width: 36px; height: 36px;
   margin: -6px 0; padding: 0; border: 0; border-radius: 50%;

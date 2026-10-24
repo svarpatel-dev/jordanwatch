@@ -202,10 +202,6 @@ export function endTour() {
   back.focus({ preventScroll: true });
 }
 
-export function tourIsOn() {
-  return active;
-}
-
 function pageParts() {
   return [document.querySelector(".topbar"), document.querySelector("main"), document.querySelector(".tabbar")];
 }

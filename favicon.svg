@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- JordanWatch's tab icon: a white water droplet on the header's navy -->
+  <rect width="64" height="64" rx="14" fill="#0f2b46"/>
+  <path d="M32 11c-8 10.7-16 20-16 29.3a16 16 0 0 0 32 0C48 31 40 21.7 32 11z" fill="#ffffff"/>
+</svg>

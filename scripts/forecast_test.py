@@ -144,7 +144,7 @@ def load_weather():
 
 def load_flow():
     """Haw River near Bynum daily mean flow (cubic feet per second): {date: flow}."""
-    url = ("https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items?f=json"
+    url = ("https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?f=json"
            "&monitoring_location_id=USGS-02096960&parameter_code=00060&statistic_id=00003"
            "&datetime=2019-12-01/2026-10-08&limit=10000&properties=time,value")
     features = get_json(url, "flow.json")["features"]

@@ -8,7 +8,7 @@ import { STATIONS } from "./stations.js";
 import { AREAS } from "./areas.js";
 import { fetchStationData, extractAllReadings,
          fetchRainTotal, fetchFlowPercentiles } from "./usgs.js";
-import { computeRisk } from "./risk.js";
+import { describeLimitedStation } from "./risk.js";
 import { fetchCyanData } from "./cyan.js";
 import { fetchWind } from "./weather.js";
 import { computeLakeVerdicts } from "./lake.js";
@@ -166,7 +166,6 @@ async function loadLake() {
 function showLakeVerdicts() {
   const { cyan, lakeLevel, wind, runoff } = lakeData;
   latestLake = computeLakeVerdicts(AREAS, cyan, lakeLevel, wind, runoff, todaysScans());
-  console.table(latestLake.ranked.map(a => ({ area: a.name, verdict: a.level, cellsPerMl: a.cellsPerMl })));
 
   // The map gets its own try/catch: if the map library fails to load,
   // the rest of the Lake tab still works.
@@ -661,7 +660,7 @@ async function run(station) {
     // Full and partial stations are judged by their state's standards, like
     // the stations near you (decided Oct 18). All 13 are North Carolina streams.
     const risk = station.tier === "limited"
-      ? computeRisk(readings, station.tier, flowNormal)
+      ? describeLimitedStation(readings, flowNormal)
       : judgeStation(readings, station.tier, rulesFor(await loadStandards(), PICKER_STATE, "ST"));
 
     showResult(station, risk, readings);

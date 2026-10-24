@@ -2,6 +2,9 @@
 // latest readings and pulling out the ones we use.
 // Moved Oct 5 to api.waterdata.usgs.gov, because USGS is shutting down the
 // old waterservices.usgs.gov (outages from January 2027, gone Feb 22, 2027).
+// The data collections use version 1 of the new API (same replies as v0,
+// whose own "next page" links already point to v1); the normals still live
+// under statistics/v0, since statistics/v1 doesn't exist yet (checked Oct 24).
 
 // USGS parameter codes → our names for them
 const PARAMS = {
@@ -14,17 +17,17 @@ const PARAMS = {
 };
 
 // "continuous" = USGS's live sensor readings (every 5–15 minutes)
-const API_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items";
+const API_URL = "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items";
 
 // "observationNormals" = what's typical for each date, from past years
 const NORMALS_URL = "https://api.waterdata.usgs.gov/statistics/v0/observationNormals";
 
 // "latest-continuous" = only the newest reading of each sensor. With a box
 // (bbox) it covers every station inside it in one request (tested Oct 8).
-const LATEST_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items";
+const LATEST_URL = "https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items";
 
 // "monitoring-locations" = each station's name, state and site type
-const LOCATIONS_URL = "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items";
+const LOCATIONS_URL = "https://api.waterdata.usgs.gov/ogcapi/v1/collections/monitoring-locations/items";
 
 // Many small lakes report their level above a newer sea-level datum (NAVD
 // 1988, code 62615) instead of 62614. Only used for stations near the user:

@@ -189,7 +189,7 @@ export function judgeStation(readings, tier, rules) {
     return noData(useTurbidity ? "Missing DO or turbidity reading." : "Missing DO reading.");
   }
 
-  // Staleness gate, the same rules as the station picker (risk.js)
+  // Staleness gate (getStaleness in risk.js: over 24 hours old = no rating)
   const ages = [getStaleness(doReading.timestamp)];
   if (useTurbidity) ages.push(getStaleness(readings.turbidityFnu.timestamp));
   if (ages.some(age => age.status === "stale")) {

@@ -11,7 +11,7 @@ export const VERDICT_NAMES = {
 };
 
 // Water stations use the same words as lakes (decided Oct 19). Their
-// engines (risk.js, nearby.js) still call a broken standard "high"; the page
+// engine (nearby.js) still calls a broken standard "high"; the page
 // says Avoid. Each one: [words, color class].
 export const STATION_LEVELS = {
   high: ["Avoid", "avoid"],
@@ -82,10 +82,9 @@ export function actionSentence(item) {
 export const AVOID_SIGHTING = "If you see scum or green, paint-like water, stay away from the shore.";
 
 // Why the app counts cells instead of measuring toxins (NC DHHS feedback,
-// Oct 21): the whole note in About, the short one under "Sources & notes"
-// on every Why card
+// Oct 21): the short note under "Sources & notes" on every Why card (the
+// whole note is written into the About page in index.html)
 export const TOXIN_SHORT = "NC DHHS and EPA judge recreation by microcystin (8 µg/L), a toxin that needs a water test; satellites count cells (WHO 1999/2003 levels), as an early warning.";
-export const TOXIN_NOTE = "NC DHHS and EPA judge recreation by a toxin, microcystin (8 µg/L), which needs a water test. Satellites can't measure toxins, so JordanWatch uses WHO's 1999/2003 cell-count levels (20,000 and 100,000 cells/mL) as an early warning. WHO's 2021 guidelines use measures satellites can't provide.";
 
 // No verdict (missing data never gives an all-clear, decided Oct 13)
 export const NO_VERDICT_ADVICE = "Check the water yourself: if it looks green, scummy or like spilled paint, or smells bad, stay out and keep pets away. The camera scan can help.";

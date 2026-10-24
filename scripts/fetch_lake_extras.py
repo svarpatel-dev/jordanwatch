@@ -44,10 +44,10 @@ from fetch_lakes import SHORE_LAKE_KM2, save, shore_points
 
 EXTRAS_DIR = Path(__file__).resolve().parent.parent / "data" / "lakes" / "extras"
 
-USGS_LATEST = ("https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items"
+USGS_LATEST = ("https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items"
                "?f=json&parameter_code={codes}&time=P7D&limit=10000"
                "&properties=monitoring_location_id,parameter_code")
-USGS_INFO = ("https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items"
+USGS_INFO = ("https://api.waterdata.usgs.gov/ogcapi/v1/collections/monitoring-locations/items"
              "?f=json&id={ids}&properties=monitoring_location_name,site_type_code&skipGeometry=true&limit=10000")
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 

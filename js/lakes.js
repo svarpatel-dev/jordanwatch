@@ -26,11 +26,6 @@ const NAME_FIXES = {
 // Jordan Lake shows its 10 areas (lake.js) instead of one whole-lake pin
 export const JORDAN_LAKE_ID = 2764219;
 
-// WHO 1999/2003 recreational guideline levels for cyanobacteria (cells/mL),
-// the same as lake.js
-const WHO_LOW_RISK = 20000;
-const WHO_MODERATE_RISK = 100000;
-
 // A level counts for the whole lake when at least 5% of what the satellite
 // saw (and at least 2 pixels) reaches it (proposed Oct 15)
 const BLOOM_SHARE = 0.05;

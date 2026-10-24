@@ -16,9 +16,6 @@ import { worstLevel, raiseOneLevel, angleBetween, compassName, mphText, rainValu
 import { describeDistance } from "./nearyou.js";
 import { readableName } from "./nearstations.js";
 
-// The five signals a lake card can use, in the order the card lists them
-export const SIGNAL_COUNT = 5;
-
 const FEET_PER_METER = 3.28084;
 
 // Everything for one lake card. satellite = lakeVerdict() from lakes.js;
