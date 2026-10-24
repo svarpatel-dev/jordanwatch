@@ -104,6 +104,7 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
       borrowedFrom: borrowed ? point?.name ?? null : null,
       // Which satellite point's daily history the trend chart shows (Oct 21)
       pointId: area.cyanPointId,
+
       reasons: signals
     };
   });
@@ -143,27 +144,41 @@ export function computeLakeVerdicts(areas, cyan, lakeLevel, wind, runoff, scans 
 
 // --- Satellite (decided Oct 3) ---
 function satelliteSignal(point, borrowed) {
-  const prefix = borrowed && point ? `Nearest satellite reading (${point.name}): ` : "Satellite: ";
-
-  // No reading, or too old to use: Caution, never Low Risk
+  // No reading at all: Caution, never Low Risk
+  
   if (!point || point.status !== "ok") {
-    return { source: "satellite", level: "caution", noRecentSatellite: true,
-             headline: "No recent satellite look", value: "No reading", text: "No satellite reading is available here." };
-  }
-  if (point.imageAgeDays > IMAGE_MAX_DAYS) {
-    return { source: "satellite", level: "caution", noRecentSatellite: true,
-             headline: "No recent satellite look", value: `${point.imageAgeDays} days old`,
-             text: `No recent satellite data (the latest image is ${point.imageAgeDays} days old).` };
+    return {
+      source: "satellite",
+      level: "caution",
+      noRecentSatellite: true,
+      headline: "No recent satellite look",
+      value: "No reading",
+      text: "No satellite reading is available here."
+    };
   }
 
+  // Reading exists but the image is too old to use: Caution, never Low Risk
+  if (point.imageAgeDays > IMAGE_MAX_DAYS) {
+    return {
+      source: "satellite",
+      level: "caution",
+      noRecentSatellite: true,
+      headline: "No recent satellite look",
+      value: `${point.imageAgeDays} days old`,
+      text: `No recent satellite data (the latest image is ${point.imageAgeDays} days old).`
+    };
+  }
+  const prefix = borrowed ? `Nearest satellite reading (${point.name}): ` : "Satellite: ";
   const cells = point.cellsPerMl;
-  // Below detection (bug 9 fix, Oct 10): the satellite saw clean water here,
-  // stored as 0 cells/mL, so it lands in the Low Risk branch below
+
+  // The sentence's number, e.g. "about 216,770 cells/mL"
   const amount = point.belowDetection
-    ? `${prefix}below detection (under about 6,500 cells/mL)`
-    : `${prefix}about ${cells.toLocaleString()} cells/mL (average of the nearby pixels)`;
-  // The card's key value: "217k cells/mL" or "Below detection"
+    ? "below detection (under about 6,500 cells/mL)"
+    : `about ${cells.toLocaleString()} cells/mL (average of the nearby pixels)`;
+
+  // The card's short value: "217k cells/mL" or "Below detection"
   const value = point.belowDetection ? "Below detection" : `${compactCells(cells)} cells/mL`;
+
   let level;
   let headline;
   let text;
@@ -171,31 +186,26 @@ function satelliteSignal(point, borrowed) {
   if (cells >= WHO_MODERATE_RISK) {
     level = "avoid";
     headline = "Strong bloom near this area";
-    text = `${amount}, above the WHO 1999/2003 moderate-risk level (100,000).`;
+    text = `${prefix}${amount}, above the WHO 1999/2003 moderate-risk level (100,000).`;
   } else if (cells >= WHO_LOW_RISK) {
     level = "caution";
     headline = "Some algae, below the Avoid level";
-    text = `${amount}, between the WHO 1999/2003 levels (20,000–100,000).`;
+    text = `${prefix}${amount}, between the WHO 1999/2003 levels (20,000–100,000).`;
   } else {
     level = "low";
     headline = point.belowDetection ? "No bloom seen" : "Little algae, below the Caution level";
-    text = `${amount}, below the WHO 1999/2003 low-risk level (20,000).`;
+    text = `${prefix}${amount}, below the WHO 1999/2003 low-risk level (20,000).`;
   }
 
-  // Rule B (decided Oct 13): the average can hide a few much higher pixels
-  // (Ebenezer Church, Oct 12: average 14,859, highest 155,597). If any nearby
-  // pixel is at the Avoid level, the area can't be Low Risk.
   const highest = point.maxCellsPerMl ?? 0;
-  if (highest >= WHO_MODERATE_RISK && level === "low") {
+  if (level === "low" && highest >= WHO_MODERATE_RISK) {
     level = "caution";
     headline = "Mostly low, but a few strong-bloom pixels";
-    text += ` But the highest one was about ${highest.toLocaleString()}, above 100,000, so low levels can't be confirmed.`;
-  } else if (highest >= WHO_MODERATE_RISK && level === "caution") {
-    text += ` The highest one was about ${highest.toLocaleString()}.`;
+    text += ` But the highest pixel was about ${highest.toLocaleString()}, above 100,000, so low levels can't be confirmed.`;
   }
 
-  // An image 7–14 days old can keep a warning but can't give an all-clear
-  if (point.imageAgeDays > IMAGE_CURRENT_DAYS && level === "low") {
+  // Old image: a 7–14 day old image can keep a warning but can't give an all-clear
+  if (level === "low" && point.imageAgeDays > IMAGE_CURRENT_DAYS) {
     level = "caution";
     headline = "Low, but the image is too old to confirm";
     text += ` But the image is ${point.imageAgeDays} days old, so low levels can't be confirmed.`;
@@ -363,13 +373,22 @@ function compareAreas(a, b) {
 
 // The worst of a list of levels, e.g. ["low", "avoid"] → "avoid"
 export function worstLevel(levels) {
-  const positions = levels.map(l => LEVELS.indexOf(l));
-  return LEVELS[Math.max(...positions)];
+  let position = 0;
+  for (const level of levels) {
+    if (LEVELS.indexOf(level) > position) {
+      position = LEVELS.indexOf(level);
+    }
+  }
+  return LEVELS[position]
 }
 
 // "low" → "caution" → "avoid" (already "avoid" stays "avoid")
 export function raiseOneLevel(level) {
-  const position = Math.min(LEVELS.indexOf(level) + 1, LEVELS.length - 1);
+  const index = LEVELS.indexOf(level);
+  if (index === -1) {
+    return LEVELS[LEVELS.length - 1];
+  }
+  const position = Math.min(index + 1, LEVELS.length - 1);
   return LEVELS[position];
 }
 
