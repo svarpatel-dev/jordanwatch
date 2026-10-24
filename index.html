@@ -120,7 +120,7 @@
           <svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>
           Your tap water
         </h2>
-        <p class="card-desc">Where your water likely comes from. Context only.</p>
+        <p id="tap-desc" class="card-desc">Where your water likely comes from. Context only.</p>
         <div id="tap-body"></div>
       </section>
 
@@ -186,8 +186,8 @@
         <ul>
           <li><button type="button" data-go="intro">
             <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
-            <span><strong>How to use JordanWatch</strong>
-              <small>6 cards with example screens</small></span>
+            <span><strong>Welcome</strong>
+              <small>What JordanWatch is, why, and who made it</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <!-- The guided tour (decided Oct 24): walks through the real app -->
@@ -271,8 +271,9 @@
             <span>Satellites can't measure toxins</span>
             <details class="more"><summary>More</summary>
               <p>NC DHHS and EPA judge recreation by a toxin, microcystin (8 µg/L), which needs a
-                water test. Satellites can't measure toxins, so JordanWatch uses WHO's cell-count
-                levels as an early warning.</p></details>
+                water test. Satellites can't measure toxins, so JordanWatch uses WHO's 1999/2003 cell-count
+                levels (20,000 and 100,000 cells/mL) as an early warning. WHO's 2021 guidelines
+                use measures satellites can't provide.</p></details>
           </li>
           <li class="how-card">
             <svg class="i i-md" aria-hidden="true"><use href="#i-rain"></use></svg>
@@ -367,121 +368,42 @@
     </button>
   </nav>
 
-  <!-- The first-open intro (decided Oct 24): six cards, five with a real
-       screenshot and numbered arrows, explained in full sentences (my ask). Opens by itself on the first visit,
-       then from the (i) button or the More tab (welcome.js). The numbers in
-       each list match the numbers drawn on its picture. -->
-  <dialog id="intro" class="intro" aria-labelledby="intro-label" aria-roledescription="carousel">
+  <!-- The welcome card (decided Oct 24): what JordanWatch is, why it
+       exists and who made it, then the guided tour (tour.js) explains every
+       feature on the real app. Opens by itself on the first visit, then
+       from the (i) button or the More tab (welcome.js). -->
+  <dialog id="intro" class="intro" aria-labelledby="intro-title">
     <div class="intro-top">
-      <p id="intro-label" class="intro-label">How to use JordanWatch · <span id="intro-count">1 of 6</span></p>
+      <p class="intro-label">Welcome</p>
       <button type="button" id="intro-skip" class="intro-skip">Skip</button>
     </div>
 
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="1 of 6">
-      <h2 tabindex="-1">What JordanWatch does</h2>
-      <p class="intro-lead">JordanWatch tells you whether a lake is likely to have a harmful algal bloom today: the green, paint-like scum that can make people and dogs sick.</p>
-      <p class="intro-lead">It checks about 7,000 US lakes with EPA satellite images, USGS sensors, rain and wind, and gives each lake one rating:</p>
-      <ul class="intro-verdicts" aria-label="The three ratings">
-        <li class="v-avoid">Avoid</li><li class="v-caution">Caution</li><li class="v-low">Low Risk</li>
-      </ul>
-      <figure class="intro-shot">
-        <img src="assets/intro/1-rating.webp" width="780" height="398" alt="Example screen: under the header, a red block shows a lake's name and its rating in large type, marked 1.">
-        <figcaption>Example screen</figcaption>
-      </figure>
-      <ol class="intro-keys">
-        <li><span><strong>Today's rating.</strong> Avoid means stay out of the water. Caution means no swimming, but boating and fishing are OK. Low Risk means the satellite saw no bloom.</span></li>
-      </ol>
-      <p class="intro-lead">It was built for Jordan Lake in North Carolina, where it rates 10 separate areas, and it works the same way for lakes across the country.</p>
-    </section>
-
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="2 of 6" hidden>
-      <h2 tabindex="-1">Find your lake</h2>
-      <p class="intro-lead">The app opens on Jordan Lake as an example. To see the lakes near you:</p>
-      <figure class="intro-shot">
-        <img src="assets/intro/2-find.webp" width="780" height="900" alt="Example screen: 1 marks the place button in the header, 2 the search box that takes a ZIP code or lake name, 3 the Use my location button.">
-        <figcaption>Example screen</figcaption>
-      </figure>
-      <ol class="intro-keys">
-        <li><span><strong>The place button.</strong> Tap the place name at the top of the screen to choose where you are.</span></li>
-        <li><span><strong>Search.</strong> Type a 5-digit ZIP code or part of a lake's name, like "falls" or "tahoe". Matching lakes appear as you type; tap one to open it.</span></li>
-        <li><span><strong>Use my location.</strong> Or let the app use your phone's location. Your exact location stays on your phone.</span></li>
-      </ol>
-    </section>
-
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="3 of 6" hidden>
-      <h2 tabindex="-1">Read the answer</h2>
-      <p class="intro-lead">Every lake uses the same layout, from top to bottom:</p>
-      <figure class="intro-shot">
-        <img src="assets/intro/3-answer.webp" width="780" height="1101" alt="Example screen: 1 marks the large rating word, 2 the What to do chips, 3 the Go here instead button, 4 the Why card listing each signal with its number.">
-        <figcaption>Example screen</figcaption>
-      </figure>
-      <ol class="intro-keys">
-        <li><span><strong>The rating.</strong> Avoid, Caution or Low Risk, with the date of the newest satellite image and whether it's getting better or worse.</span></li>
-        <li><span><strong>What to do today.</strong> Short tips for people, kids and dogs: whether swimming, wading or boating is OK, and to rinse off with tap water after contact.</span></li>
-        <li><span><strong>A better spot nearby.</strong> If the lake is at Avoid or Caution, the app suggests the nearest lake (at Jordan Lake, the nearest area) with a better rating. Tap it to switch.</span></li>
-        <li><span><strong>Why.</strong> One small card per signal: satellite algae, rain and river flow, lake level and wind. The worst signal sets the rating. Tap Details for the exact numbers, and see the 30-day trend chart below.</span></li>
-      </ol>
-    </section>
-
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="4 of 6" hidden>
-      <h2 tabindex="-1">The map and more</h2>
-      <p class="intro-lead">Scroll down to the satellite map and the extra cards:</p>
-      <figure class="intro-shot">
-        <img src="assets/intro/4-map.webp" width="780" height="1242" alt="Example screen: 1 marks the star on a lake tile, 2 the satellite color legend, 3 a rating pin on Falls Lake, which is colored orange and red by the satellite.">
-        <figcaption>Example screen</figcaption>
-      </figure>
-      <ol class="intro-keys">
-        <li><span><strong>Save a lake.</strong> Tap the star on any lake or area. Saved lakes appear in a "Your lakes" row at the top next time.</span></li>
-        <li><span><strong>Satellite colors.</strong> Where the satellite saw algae in the past week, from light yellow (low) to red and purple (very high). No color means clean water, clouds or no satellite pass.</span></li>
-        <li><span><strong>Rating pins.</strong> Every lake has a pin in its rating's color; gray means no recent reading. Tap a pin to open that lake, or tap Full map for a bigger view.</span></li>
-      </ol>
-      <p class="intro-lead">Further down, <strong>Your tap water</strong> shows which lake your drinking water likely comes from (context only, not a tap-water rating), and <strong>Live stations</strong> shows nearby USGS water sensors, each judged by its own state's standards.</p>
-    </section>
-
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="5 of 6" hidden>
-      <h2 tabindex="-1">Right at the shore</h2>
-      <p class="intro-lead">Satellites can't see the shoreline or small ponds, but your phone can.</p>
-      <figure class="intro-shot">
-        <img src="assets/intro/5-shore.webp" width="780" height="824" alt="Example screen: the Scan tab. 1 marks the Scan button in the bottom bar, 2 the Start camera button, 3 the red If exposed button in the header.">
-        <figcaption>Example screen</figcaption>
-      </figure>
-      <ol class="intro-keys">
-        <li><span><strong>The Scan tab.</strong> The round camera button in the bottom bar.</span></li>
-        <li><span><strong>Scan the water.</strong> Tap Start camera, point at the water near the shore, then tap Scan. The model says possible bloom, plants, clear water or not water, and how sure it is. You can also check a photo you already took.</span></li>
-        <li><span><strong>If exposed.</strong> If you, a child or a pet touched bloom water, this red button shows what to do and the numbers to call.</span></li>
-      </ol>
-      <p class="intro-lead">Seeing a bloom? Use <strong>Report a bloom</strong> (in What to do) to send it to your state's environmental agency. The camera is a screening aid, not a diagnosis.</p>
-    </section>
-
-    <section class="intro-card" role="group" aria-roledescription="card" aria-label="6 of 6" hidden>
-      <h2 tabindex="-1">Good to know</h2>
+    <section class="intro-card">
+      <h2 id="intro-title" tabindex="-1">Welcome to JordanWatch</h2>
       <ul class="intro-points">
-        <li><strong>Updated automatically.</strong> New satellite data arrives several times a day. Satellite images are usually 1 to 3 days old, and the app always shows their date.</li>
-        <li><strong>Old data never gives an all-clear.</strong> A reading over a week old can keep a warning, but it can't make a lake Low Risk.</li>
-        <li><strong>Cells, not toxins.</strong> Satellites count algae cells; they can't measure toxins. The ratings use the World Health Organization's cell-count levels as an early warning.</li>
-        <li><strong>Blind spots.</strong> Narrow arms, the shoreline and lakes smaller than about a square kilometer are too small for the satellite, and clouds hide lakes some days. That's what the camera scan is for.</li>
-        <li><strong>More tab.</strong> How it works, data sources and About.</li>
+        <li><strong>What it does.</strong> Rates about 7,000 US lakes for harmful algal blooms today, using EPA satellite images, USGS sensors, rain and wind.</li>
+        <li><strong>Why.</strong> Blooms can make people and dogs sick, and most lakes aren't tested often enough for you to know before you go.</li>
+        <li><strong>Built for Jordan Lake.</strong> It rates 10 separate areas of Jordan Lake, NC, and works the same way for lakes across the country.</li>
+      </ul>
+      <h3 class="intro-sub">The three ratings</h3>
+      <ul class="intro-ratings">
+        <li><span class="v-avoid">Avoid</span> Stay out of the water.</li>
+        <li><span class="v-caution">Caution</span> No swimming; boat or fish with care.</li>
+        <li><span class="v-low">Low Risk</span> The satellite saw no bloom.</li>
+      </ul>
+      <ul class="intro-points">
+        <li><strong>Who made it.</strong> Svar Patel, a high school student in North Carolina.</li>
         <li><strong>Not an official advisory.</strong> Always follow posted signs and your state's advisories.</li>
       </ul>
-      <p class="intro-lead">Reopen this guide anytime with the <strong>(i)</strong> button at the top.</p>
-      <!-- The guided tour (decided Oct 24): the same features, pointed out on the real app -->
-      <button type="button" id="intro-tour" class="button-line intro-tour">
-        <svg class="i" aria-hidden="true"><use href="#i-tour"></use></svg>
-        Take the guided tour
-      </button>
+      <p class="intro-lead">The guided tour points at each part of the app and takes about a minute. Reopen this anytime with the <strong>(i)</strong> button at the top.</p>
     </section>
 
     <div class="intro-nav">
-      <button type="button" id="intro-back" class="button-line" disabled>Back</button>
-      <div class="intro-dots" role="group" aria-label="Choose a card">
-        <button type="button" aria-label="Card 1 of 6" aria-current="step"></button>
-        <button type="button" aria-label="Card 2 of 6"></button>
-        <button type="button" aria-label="Card 3 of 6"></button>
-        <button type="button" aria-label="Card 4 of 6"></button>
-        <button type="button" aria-label="Card 5 of 6"></button>
-        <button type="button" aria-label="Card 6 of 6"></button>
-      </div>
-      <button type="button" id="intro-next" class="button-solid">Next</button>
+      <button type="button" id="intro-close" class="button-line">Skip</button>
+      <button type="button" id="intro-tour" class="button-solid">
+        <svg class="i" aria-hidden="true"><use href="#i-tour"></use></svg>
+        Take the guided tour
+      </button>
     </div>
   </dialog>
 
@@ -537,7 +459,8 @@
       <a class="call" href="tel:18884264435">ASPCA Animal Poison Control <strong>1-888-426-4435</strong></a>
       <a class="call" href="tel:18557647661">Pet Poison Helpline <strong>1-855-764-7661</strong></a>
       <p class="small">From the CDC's
-        <a href="https://www.cdc.gov/harmful-algal-blooms/about/index.html" target="_blank" rel="noopener">Harmful Algal Blooms and Your Health</a>.
+        <a href="https://www.cdc.gov/harmful-algal-blooms/about/index.html" target="_blank" rel="noopener">Harmful Algal Blooms and Your Health</a>
+        and <a href="https://www.cdc.gov/harmful-algal-blooms/prevention/index.html" target="_blank" rel="noopener">Preventing illness</a>.
         Not medical advice.</p>
     </div>
   </dialog>

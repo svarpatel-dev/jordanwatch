@@ -455,6 +455,11 @@ async function loadBeachLakes(states) {
 // Looked up once per place; drawn again whenever the lake ratings change
 async function loadTapWater(place) {
   tapWater = null;
+  // Tap water is about where you live, not the lake on screen, so the card
+  // says which place it's for (a lake picked in the search doesn't change it)
+  const where = place.source === "zip" ? `ZIP ${place.zip}` : "your location";
+  document.getElementById("tap-desc").textContent =
+    `For ${where}, not the lake on screen. Change it with the place button at the top. Context only.`;
   showTapWaterStatus("Looking up your water system…");
   try {
     const result = await findWaterSystems(place);

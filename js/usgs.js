@@ -1,7 +1,7 @@
 // Everything that talks to the USGS water data API: fetching a station's
 // latest readings and pulling out the ones we use.
 // Moved Oct 5 to api.waterdata.usgs.gov, because USGS is shutting down the
-// old waterservices.usgs.gov (blackouts Nov 2026 – Feb 2027, then gone).
+// old waterservices.usgs.gov (outages from January 2027, gone Feb 22, 2027).
 
 // USGS parameter codes → our names for them
 const PARAMS = {

@@ -45,7 +45,7 @@ const STEPS = [
     tab: "lake", targets: ["#now .now-chips"],
     title: "What to do today",
     lines: [["Tips", "Short advice for people, kids and dogs."],
-            ["Example", "Whether swimming or boating is OK, and to rinse off after contact."]]
+            ["Example", "Whether to swim, and to rinse off with tap water after contact."]]
   },
   {
     tab: "lake", targets: ["#now .now-go"],
@@ -60,16 +60,10 @@ const STEPS = [
             ["Tap one", "Its rating, Why and What to do fill the page."]]
   },
   {
-    tab: "lake", targets: [".legend-strip"],
-    title: "Satellite colors",
-    lines: [["Colors", "Algae the satellite saw this past week: yellow is low, red and purple are very high."],
-            ["No color", "Clean water, clouds or no satellite pass."]]
-  },
-  {
-    tab: "lake", targets: ["#map", "#full-map-button"],
-    title: "Rating pins",
-    lines: [["Pins", "Every lake has a pin in its rating's color. Gray means no recent reading."],
-            ["Tap a pin", "Opens that lake. Full map shows a bigger view."]]
+    tab: "lake", targets: [".legend-strip", "#map"],
+    title: "The map",
+    lines: [["Colors", "Algae the satellite saw this past week: yellow is low, red and purple are very high. No color means clean water, clouds or no pass."],
+            ["Pins", "One per lake in its rating's color; gray means no recent reading. Tap a pin to open that lake, or Full map for a bigger view."]]
   },
   {
     tab: "lake", targets: ["#why .why-grid"],
@@ -136,10 +130,17 @@ const STEPS = [
             ["Further down", "How it works, data sources and About."]]
   },
   {
+    tab: "more", targets: ["#about-how"],
+    title: "Good to know",
+    lines: [["Old data", "A reading over a week old can keep a warning, but never makes a lake Low Risk."],
+            ["Cells, not toxins", "Satellites count algae cells; they can't measure toxins."],
+            ["Blind spots", "Shorelines, narrow arms and small lakes are too small for the satellite. Use the camera scan there."]]
+  },
+  {
     tab: "more", targets: ["#intro-button"],
-    title: "Reopen the guide",
-    lines: [["(i) button", "Reopens the 6-card guide."],
-            ["This tour", "Start it again from the More tab."]]
+    title: "Reopen the welcome",
+    lines: [["(i) button", "Reopens the welcome card and this tour."],
+            ["Not an official advisory", "Always follow posted signs and your state's advisories."]]
   }
 ];
 

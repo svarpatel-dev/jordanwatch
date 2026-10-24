@@ -44,7 +44,7 @@ const ACTIVITIES = {
     families: "Keep kids out of the water"
   },
   caution: {
-    action: "No swimming or wading today. Boating and fishing are OK; rinse off with tap water after any contact.",
+    action: "No swimming or wading today. Boating and fishing with care: avoid touching the water, and rinse off with tap water after any contact.",
     suggested: ["Boating", "Kayaking", "Paddleboarding", "Fishing", "Shore activities"],
     notSuggested: ["Swimming or wading", "Swallowing lake water"],
     always: ["Rinse off with tap water after any contact"],
@@ -65,7 +65,7 @@ const ACTIVITIES = {
 // Python list of tuples. "none" = no verdict (no recent reading, too small).
 export const ACTION_CHIPS = {
   avoid: [["ban", "No swimming"], ["paw", "Keep dogs out"], ["droplet", "Rinse off with tap water"], ["warning", "Stay away from scum"]],
-  caution: [["ban", "No swimming"], ["waves", "Boating & fishing OK"], ["paw", "Keep pets out"], ["droplet", "Rinse off after contact"]],
+  caution: [["ban", "No swimming"], ["waves", "Boat or fish with care"], ["paw", "Keep pets out"], ["droplet", "Rinse off after contact"]],
   low: [["waves", "Swim at beaches"], ["warning", "Avoid scum"], ["paw", "Pets: check local rules"], ["droplet", "Rinse off after swimming"]],
   none: [["search", "Check the water yourself"], ["warning", "Stay out if green or scummy"], ["camera", "Use the camera scan"], ["paw", "Keep pets away"]]
 };
@@ -84,8 +84,8 @@ export const AVOID_SIGHTING = "If you see scum or green, paint-like water, stay 
 // Why the app counts cells instead of measuring toxins (NC DHHS feedback,
 // Oct 21): the whole note in About, the short one under "Sources & notes"
 // on every Why card
-export const TOXIN_SHORT = "NC DHHS and EPA judge recreation by microcystin (8 µg/L), a toxin that needs a water test; satellites count cells, as an early warning.";
-export const TOXIN_NOTE = "NC DHHS and EPA judge recreation by a toxin, microcystin (8 µg/L), which needs a water test. Satellites can't measure toxins, so JordanWatch uses WHO's cell-count levels as an early warning.";
+export const TOXIN_SHORT = "NC DHHS and EPA judge recreation by microcystin (8 µg/L), a toxin that needs a water test; satellites count cells (WHO 1999/2003 levels), as an early warning.";
+export const TOXIN_NOTE = "NC DHHS and EPA judge recreation by a toxin, microcystin (8 µg/L), which needs a water test. Satellites can't measure toxins, so JordanWatch uses WHO's 1999/2003 cell-count levels (20,000 and 100,000 cells/mL) as an early warning. WHO's 2021 guidelines use measures satellites can't provide.";
 
 // No verdict (missing data never gives an all-clear, decided Oct 13)
 export const NO_VERDICT_ADVICE = "Check the water yourself: if it looks green, scummy or like spilled paint, or smells bad, stay out and keep pets away. The camera scan can help.";
