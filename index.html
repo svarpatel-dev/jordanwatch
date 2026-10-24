@@ -187,7 +187,14 @@
           <li><button type="button" data-go="intro">
             <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
             <span><strong>How to use JordanWatch</strong>
-              <small>A 5-card tour of the app</small></span>
+              <small>6 cards with example screens</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
+          <!-- The guided tour (decided Oct 24): walks through the real app -->
+          <li><button type="button" data-go="tour">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-tour"></use></svg>
+            <span><strong>Take the guided tour</strong>
+              <small>Points at each part of the real app</small></span>
             <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
           </button></li>
           <li><button type="button" data-go="stations">
@@ -457,6 +464,11 @@
         <li><strong>Not an official advisory.</strong> Always follow posted signs and your state's advisories.</li>
       </ul>
       <p class="intro-lead">Reopen this guide anytime with the <strong>(i)</strong> button at the top.</p>
+      <!-- The guided tour (decided Oct 24): the same features, pointed out on the real app -->
+      <button type="button" id="intro-tour" class="button-line intro-tour">
+        <svg class="i" aria-hidden="true"><use href="#i-tour"></use></svg>
+        Take the guided tour
+      </button>
     </section>
 
     <div class="intro-nav">
@@ -571,6 +583,7 @@
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4.5 2 4.5H5"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
     <symbol id="i-dash" viewBox="0 0 24 24"><path d="M7 12h10"/></symbol>
+    <symbol id="i-tour" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></symbol>
     <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/></symbol>
   </svg>
 

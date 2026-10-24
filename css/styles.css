@@ -835,3 +835,48 @@ dialog.sheet::backdrop { background: rgba(15, 43, 70, 0.45); }
 .tap-lakes li .icon-button { margin: 0; }
 .tap-chips { margin-top: 10px; }
 .tap-none { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
+/* --- The guided tour (decided Oct 24): the page goes dark except a
+   spotlight around one part, with a small card next to it (tour.js) --- */
+.tour { position: fixed; inset: 0; z-index: 3000; }
+/* Catches every tap on the dark page, so nothing behind it opens by accident */
+.tour-catch { position: absolute; inset: 0; }
+.tour-spot {
+  position: fixed; border-radius: var(--radius);
+  /* One huge shadow darkens everything outside the spotlight */
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 200vmax rgba(10, 22, 35, 0.62);
+  transition: left 220ms ease, top 220ms ease, width 220ms ease, height 220ms ease;
+}
+.tour-card {
+  position: fixed; padding: 12px 14px 14px;
+  background: var(--paper); color: var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(10, 22, 35, 0.35);
+}
+.tour-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-count { font-size: 12.5px; color: var(--ink-soft); }
+.tour-end {
+  min-height: 36px; margin: -6px -6px -6px 0; padding: 0 6px; border: 0; background: none;
+  color: var(--blue); font-size: 13.5px; font-weight: 600;
+}
+.tour-title { margin: 2px 0 6px; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.tour-lines { margin: 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.4; }
+.tour-lines li + li { margin-top: 4px; }
+.tour-lines strong { font-weight: 700; }
+.tour-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.tour-nav .button-line, .tour-nav .button-solid {
+  margin: 0; min-height: 44px; align-items: center; justify-content: center; text-align: center;
+}
+.tour-nav .button-line:disabled { opacity: 0.4; cursor: default; }
+/* The arrow: a small square turned 45 degrees, half of it outside the card */
+.tour-arrow {
+  position: absolute; width: 14px; height: 14px; background: var(--paper);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.tour-arrow[data-side="below"] { top: 0; }
+.tour-arrow[data-side="above"] { top: 100%; }
+.tour-arrow[data-side="right"] { left: 0; }
+.tour-arrow[data-side="left"] { left: 100%; }
+.tour-arrow[hidden] { display: none; }
+/* The last intro card's "Take the guided tour" button */
+.intro-tour { justify-content: center; align-items: center; }

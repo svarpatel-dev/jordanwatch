@@ -33,6 +33,7 @@ import { showAreaConditions, showLakeConditions, showConditionsMessage,
 import { searchLakes, isZip } from "./lakesearch.js";
 import { showTab, onTab, setUpTabs, openSheet, closeSheet, setUpSheets } from "./screens.js";
 import { setUpWelcome, openWelcome } from "./welcome.js";
+import { startTour } from "./tour.js";
 import { favorites, favoriteKey, parseFavorite, isFavorite, toggleFavorite } from "./favorites.js";
 import { findWaterSystems } from "./tapwater.js";
 import { showTapWater, showTapWaterStatus, clearTapWater } from "./tapcard.js";
@@ -1082,6 +1083,7 @@ document.addEventListener("keydown", event => {
 // feature lives. Rows for the Lake tab switch tabs first.
 const DIRECTORY = {
   intro: openWelcome,
+  tour: startTour,
   stations: () => showSection("lake", "stations-card"),
   // With no place yet, the place search first (the card needs a place)
   tap: () => (chosenPlace ? showSection("lake", "tap-card") : openPlaceSheet()),

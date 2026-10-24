@@ -12,6 +12,8 @@
 // The intro is a <dialog>: the browser keeps the keyboard inside it, closes
 // it on Escape and dims the page behind it.
 
+import { startTour } from "./tour.js";
+
 const SEEN_KEY = "jordanwatch-intro-seen";
 
 const dialog = document.getElementById("intro");
@@ -33,6 +35,12 @@ export function setUpWelcome() {
     }
   });
   document.getElementById("intro-skip").addEventListener("click", closeIntro);
+  // "Take the guided tour" on the last card: close the intro first, then
+  // walk through the real app (tour.js)
+  document.getElementById("intro-tour").addEventListener("click", () => {
+    closeIntro();
+    startTour();
+  });
   dots.forEach((dot, index) => dot.addEventListener("click", () => showCard(index)));
 
   // Escape: the browser closes the dialog; remember it like Skip
