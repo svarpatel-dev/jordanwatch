@@ -20,7 +20,7 @@ import { showLakePins, updateLakePin, showWaterSources } from "./lakemap.js";
 import { showLakeDetails } from "./lakecard.js";
 import { fetchLakeExtras, fetchReportRoutes, lakesWithBeaches } from "./lakeextras.js";
 import { combineLakeSignals } from "./lakesignals.js";
-import { loadModel, startCamera, stopCamera, classifyFrame } from "./camera.js";
+import { loadModel, startCamera, stopCamera, freezeFrame, drawPhoto, scanLive, scanPicture } from "./camera.js";
 import { getLocation, nearest, distanceKm, findZip, locationAllowed,
          savePlaceChoice, savedPlaceChoice, forgetPlaceChoice } from "./location.js";
 import { saveScan, todaysScans } from "./scans.js";
@@ -32,16 +32,16 @@ import { showAreaConditions, showLakeConditions, showConditionsMessage,
          showTiles, areaTileSub, lakeTileSub } from "./conditions.js";
 import { searchLakes, isZip } from "./lakesearch.js";
 import { showTab, onTab, setUpTabs, openSheet, closeSheet, setUpSheets } from "./screens.js";
-import { setUpWelcome } from "./welcome.js";
+import { setUpWelcome, openWelcome } from "./welcome.js";
 import { favorites, favoriteKey, parseFavorite, isFavorite, toggleFavorite } from "./favorites.js";
 import { findWaterSystems } from "./tapwater.js";
 import { showTapWater, showTapWaterStatus, clearTapWater } from "./tapcard.js";
 import { reportHtml } from "./cardparts.js";
 import { verdictLabel, escapeHtml, shortDateTime } from "./advice.js";
 import { fillStationPicker, showLoading, showResult, showError,
-         showAreaDetails, showLakeError, showScanStatus, showScanResult,
-         askAboutBloom, showBloomSaved, showBloomNotNear, showBloomNoLocation,
-         clearScanNote } from "./ui.js";
+         showAreaDetails, showLakeError, showScanStatus, showScanLooking, showScanResult,
+         updateScanReport, clearScanResult, askAboutBloom, showBloomSaved, showBloomNotNear,
+         showBloomNoLocation, clearScanNote } from "./ui.js";
 
 // The USGS station at Jordan Lake's dam (lake level and rain), and the
 // Haw River, the lake's main inflow (for runoff after storms)
@@ -55,6 +55,11 @@ const picker = document.getElementById("station-picker");
 const pickerBox = document.getElementById("station-picker-box");
 const scanButton = document.getElementById("scan-start");
 const scanVideo = document.getElementById("scan-video");
+const scanStill = document.getElementById("scan-still");
+const scanView = document.querySelector(".scan-view");
+const shutterButton = document.getElementById("scan-shutter");
+const scanAgainButton = document.getElementById("scan-again");
+const photoInput = document.getElementById("scan-photo");
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("search-input");
 const suggestionsBox = document.getElementById("suggestions");
@@ -68,24 +73,20 @@ const SEARCH_HINT = '<li class="small">Type a 5-digit ZIP or a lake name.</li>';
 // Opening a lake zooms the map in at least this far on it
 const LAKE_ZOOM = 9;
 
-// How often the camera scan looks at the view (milliseconds)
-const SCAN_EVERY_MS = 500;
+// The hint on the live camera view (tap to scan, decided Oct 24)
+const SCAN_HINT = "Point at the water near the shore, then tap Scan";
 
-// The repeating scan while the camera is on; null while it's off
-let scanTimer = null;
+// true while the camera is on
+let cameraOn = false;
+// true while a scan or a photo is being looked at (one at a time)
+let scanBusy = false;
 
-// A bloom has to be steady before the app asks about it (decided Oct 11):
-// "bloom" in at least 5 of the last 6 frames (about 3 seconds)
-const STEADY_FRAMES = 6;
-const STEADY_BLOOMS = 5;
 // A confirmed scan only counts within this distance of an area's shore
 const NEAR_AREA_KM = 2;
-// After an answer, wait this long before asking again
-const ASK_AGAIN_AFTER_MS = 30000;
 
-let recentLabels = [];
 let askingAboutBloom = false;
-let dontAskBefore = 0;
+// Where the user was at their last bloom answer (GPS), for the report link
+let lastScanPlace = null;
 
 // The latest lake data, kept so the verdicts can be redone after a scan
 let lakeData = null;
@@ -478,8 +479,10 @@ function drawTapWater() {
 function drawWaterSources() {
   const covered = tapWater?.systems[0]?.sources?.lakes ?? [];
   const sources = nationwide
-    ? covered.map(([id, name]) => ({ lake: nationwide.lakes.find(l => l.id === id), name }))
-             .filter(source => source.lake)
+    ? covered.map(([id]) => nationwide.lakes.find(l => l.id === id))
+             .filter(lake => lake)
+             // The app's name for the lake (e.g. "Jordan Lake", not EPA's "B Everett Jordan Lake")
+             .map(lake => ({ lake, name: lake.name }))
     : [];
   showWaterSources(getMap(), sources);
 }
@@ -664,69 +667,161 @@ async function run(station) {
 }
 
 // --- The camera scan ---
+// Tap to scan or use a photo (decided Oct 24, after the live result jumped
+// around in testing): the live view shows only the camera. Tapping Scan
+// freezes the picture, looks at 8 frames over about 1.5 seconds and shows
+// one averaged result. A photo gets the same single result. The old "bloom
+// in 5 of the last 6 frames" rule is replaced by the averaging.
 
-// Start the camera and load the model at the same time, then classify the
-// view twice a second.
+// Start the camera and load the model at the same time, then show the
+// live view with the Scan button
 async function startScan() {
   scanButton.disabled = true;
-  scanVideo.hidden = false;
   showScanStatus("Starting the camera and loading the model…");
+  scanVideo.hidden = false;
 
   try {
-    const [model] = await Promise.all([loadModel(), startCamera(scanVideo)]);
-
-    scanTimer = setInterval(() => {
-      // readyState 2+ means the video has a frame to look at
-      if (scanVideo.readyState >= 2) {
-        const result = classifyFrame(model, scanVideo);
-        showScanResult(result);
-        checkForSteadyBloom(result);
-      }
-    }, SCAN_EVERY_MS);
+    await Promise.all([loadModel(), startCamera(scanVideo)]);
+    cameraOn = true;
     scanButton.textContent = "Stop camera";
+    scanButton.className = "button-line";   // quieter, so Scan stays the main button
+    showLiveView();
   } catch (error) {
     console.error("Camera scan failed", error);
     stopCamera(scanVideo);
     scanVideo.hidden = true;
-    showScanStatus(`Couldn't start the camera: ${error.message}. Allow camera access.`);
+    showScanStatus(`Couldn't start the camera: ${error.message}. Allow camera access, or use a photo.`);
   }
   scanButton.disabled = false;
 }
 
-// Turn the camera off and stop scanning
-function stopScan() {
-  clearInterval(scanTimer);
-  scanTimer = null;
-  stopCamera(scanVideo);
-  scanVideo.hidden = true;
-  scanButton.textContent = "Start camera";
-  showScanStatus("Camera off. Tap Start camera, then point at the water.");
-  recentLabels = [];
-  if (askingAboutBloom) {
-    askingAboutBloom = false;
-    closeSheet("sheet-bloom");
-    clearScanNote();
-  }
+// The live picture with the Scan button, no result
+function showLiveView() {
+  scanStill.hidden = true;
+  scanView.classList.remove("has-result");
+  clearScanResult();
+  clearScanNote();
+  scanAgainButton.hidden = true;
+  showStartButton();
+  shutterButton.hidden = false;
+  showScanStatus(SCAN_HINT);
 }
 
-// Ask the user only when the bloom result is steady, not a one-frame flicker
-function checkForSteadyBloom(result) {
-  recentLabels = [...recentLabels, result.label].slice(-STEADY_FRAMES);
-  const blooms = recentLabels.filter(label => label === "bloom").length;
+// Turn the camera off. A result already on screen stays.
+function stopScan() {
+  cameraOn = false;
+  stopCamera(scanVideo);
+  scanVideo.hidden = true;
+  shutterButton.hidden = true;
+  scanButton.textContent = "Start camera";
+  scanButton.className = "button-solid";
+  showScanStatus(scanStill.hidden ? "Camera off" : "");
+  if (askingAboutBloom) closeSheet("sheet-bloom");   // closing counts as No
+  showStartButton();
+}
 
-  if (blooms >= STEADY_BLOOMS && !askingAboutBloom && Date.now() >= dontAskBefore) {
+// "Start camera" / "Stop camera" hides while a result's "Scan again" can
+// start the camera instead (two buttons doing the same thing)
+function showStartButton() {
+  scanButton.hidden = !cameraOn && !scanAgainButton.hidden;
+}
+
+// The Scan button: freeze the picture, look at several frames, average them
+async function takeScan() {
+  if (!cameraOn || scanBusy) return;
+  scanBusy = true;
+  freezeFrame(scanVideo, scanStill);
+  scanStill.classList.remove("is-photo");
+  scanStill.hidden = false;
+  shutterButton.hidden = true;
+  showScanStatus("");
+  showScanLooking(0, 1);
+
+  try {
+    const model = await loadModel();
+    const result = await scanLive(model, scanVideo, showScanLooking);
+    await showScanOutcome(result);
+  } catch (error) {
+    console.error("Scan failed", error);
+    scanStill.hidden = true;
+    scanView.classList.remove("has-result");
+    if (cameraOn) {
+      shutterButton.hidden = false;
+      showScanStatus(`Couldn't scan: ${error.message}. Try again.`);
+    } else {
+      showScanStatus("Camera off");
+    }
+  }
+  showScanLooking(null);
+  scanBusy = false;
+}
+
+// "Use a photo instead": works with the camera off, and on laptops
+async function scanPhoto(file) {
+  if (!file || scanBusy) return;
+  if (cameraOn) stopScan();
+  scanBusy = true;
+  clearScanResult();
+  clearScanNote();
+  scanAgainButton.hidden = true;
+  showStartButton();
+  showScanStatus("");
+  showScanLooking(0, 1);
+  scanStill.classList.add("is-photo");
+
+  try {
+    const [model] = await Promise.all([loadModel(), drawPhoto(file, scanStill)]);
+    scanStill.hidden = false;
+    const result = scanPicture(model, scanStill);
+    showScanLooking(1, 1);
+    await showScanOutcome(result);
+  } catch (error) {
+    console.error("Photo scan failed", error);
+    scanStill.hidden = true;
+    scanView.classList.remove("has-result");
+    showScanStatus(`Couldn't read that photo (${error.message}). Try another one.`);
+  }
+  showScanLooking(null);
+  scanBusy = false;
+  photoInput.value = "";   // so choosing the same photo again still works
+}
+
+// Show the one result under the picture; a bloom at 70% or more asks the
+// bloom question (decided Oct 11)
+async function showScanOutcome(result) {
+  if (!reportRoutes) await loadReportRoutes();
+  scanView.classList.add("has-result");
+  showScanResult(result, reportHtml(stateAt(lastScanPlace ?? chosenPlace), reportRoutes));
+  scanAgainButton.hidden = false;
+  showStartButton();
+  document.getElementById("scan-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  if (result.label === "bloom" && !askingAboutBloom) {
     askingAboutBloom = true;
-    recentLabels = [];
     const percent = Math.round(result.confidence * 100);
     askAboutBloom(percent, answeredYes => answerBloomQuestion(answeredYes, percent));
   }
 }
 
+// "Scan again": back to the live picture (the camera starts if it's off)
+function scanAgain() {
+  if (cameraOn) {
+    showLiveView();
+  } else {
+    scanStill.hidden = true;
+    scanView.classList.remove("has-result");
+    clearScanResult();
+    clearScanNote();
+    scanAgainButton.hidden = true;
+    showStartButton();
+    startScan();
+  }
+}
+
 // Yes → find the nearest Jordan Lake area and raise its verdict one level
 // (saved on this phone only). No → nothing changes. Either way after a Yes,
-// the user's state's way to report a bloom.
+// the report link in the result switches to the user's state.
 async function answerBloomQuestion(answeredYes, percent) {
-  dontAskBefore = Date.now() + ASK_AGAIN_AFTER_MS;
   if (!answeredYes) {
     askingAboutBloom = false;
     return;
@@ -735,27 +830,28 @@ async function answerBloomQuestion(answeredYes, percent) {
   await loadReportRoutes();
   try {
     const here = await getLocation();
-    const report = reportHtml(stateAt(here), reportRoutes);
+    lastScanPlace = here;
+    updateScanReport(reportHtml(stateAt(here), reportRoutes));
     const closest = nearest(AREAS, here);
     if (closest && closest.km <= NEAR_AREA_KM) {
       saveScan({ areaId: closest.place.id, percent });
-      showBloomSaved(closest.place.name, report);
+      showBloomSaved(closest.place.name);
       if (lakeData) showLakeVerdicts();
     } else {
-      showBloomNotNear(report);
+      showBloomNotNear();
     }
   } catch (error) {
     console.error("Couldn't get the location for the scan", error);
-    showBloomNoLocation(error.message, reportHtml(null, reportRoutes));
+    showBloomNoLocation(error.message);
   }
   askingAboutBloom = false;
 }
 
 // The state a point is in, for reporting a bloom: the state of the nearest
 // covered lake (null if the lake list isn't loaded, then EPA's list of
-// every state's program is shown)
+// every state's program is shown). No point (no place chosen yet) → null too.
 function stateAt(point) {
-  if (!nationwide) return null;
+  if (!nationwide || !point) return null;
   return nearestLakes(nationwide.lakes, point, 1)[0]?.lake.state ?? null;
 }
 
@@ -951,7 +1047,7 @@ setUpTabs();
 setUpSheets();
 // Leaving the Scan tab turns the camera off; coming back to the Lake tab,
 // Leaflet measures the map again (it can't while the tab is hidden)
-onTab("scan", { leave: () => { if (scanTimer !== null) stopScan(); } });
+onTab("scan", { leave: () => { if (cameraOn) stopScan(); } });
 onTab("lake", { show: refreshMapSize });
 
 loadLake();
@@ -985,6 +1081,7 @@ document.addEventListener("keydown", event => {
 // The More tab's directory (decided Oct 21): each row goes to where that
 // feature lives. Rows for the Lake tab switch tabs first.
 const DIRECTORY = {
+  intro: openWelcome,
   stations: () => showSection("lake", "stations-card"),
   // With no place yet, the place search first (the card needs a place)
   tap: () => (chosenPlace ? showSection("lake", "tap-card") : openPlaceSheet()),
@@ -1004,25 +1101,27 @@ function showSection(tab, id) {
   document.getElementById(id).scrollIntoView({ block: "start" });
 }
 
-// The first-visit tips (decided Oct 21): each step does what it says
-setUpWelcome({
-  search: openPlaceSheet,
-  why: () => document.getElementById("why").scrollIntoView({ behavior: "smooth", block: "start" }),
-  scan: () => showTab("scan")
-});
+// The first-open intro (decided Oct 24): opens by itself on the first
+// visit; the (i) button in the header and the More tab reopen it
+setUpWelcome();
 
 // One button: starts the camera when it's off, stops it when it's on
 scanButton.addEventListener("click", () => {
-  if (scanTimer === null) {
+  if (!cameraOn) {
     startScan();
   } else {
     stopScan();
   }
 });
 
+// The Scan button over the live picture, "Scan again", and the photo picker
+shutterButton.addEventListener("click", takeScan);
+scanAgainButton.addEventListener("click", scanAgain);
+photoInput.addEventListener("change", () => scanPhoto(photoInput.files[0]));
+
 // Leaving the page (another app or tab, phone locked) turns the camera off
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && scanTimer !== null) {
+  if (document.hidden && cameraOn) {
     stopScan();
   }
 });

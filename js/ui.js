@@ -189,27 +189,58 @@ export function showLakeError(message) {
 
 // --- The camera scan ---
 
-// A message on the camera view, e.g. "Starting the camera…"
+// One short line on the camera view, e.g. "Camera off" or the hint.
+// An empty message hides the line.
 export function showScanStatus(message) {
-  const strip = document.getElementById("scan-result");
-  strip.className = "scan-result scan-plain";
-  strip.textContent = message;
+  const line = document.getElementById("scan-status");
+  line.textContent = message;
+  line.hidden = !message;
 }
 
-// What the camera scan sees right now, with how confident the model is
-export function showScanResult(result) {
+// The progress while a scan looks at the water: done of total frames.
+// done = null hides it.
+export function showScanLooking(done, total) {
+  const box = document.getElementById("scan-looking");
+  box.hidden = done === null;
+  if (done !== null) {
+    document.getElementById("scan-progress-bar").style.width = `${Math.round((done / total) * 100)}%`;
+  }
+}
+
+// The one result of a scan or a photo, under the picture, with how confident
+// the model is. reportLink = reportHtml() for the user's state (bloom only).
+export function showScanResult(result, reportLink) {
   const percent = Math.round(result.confidence * 100);
   const [words, color] = SCAN_LABELS[result.label];
-  const strip = document.getElementById("scan-result");
-  strip.className = `scan-result ${color}`;
-  strip.innerHTML = `
-    <strong>${words}</strong> <span>${percent}% confident</span>
-    ${result.label === "bloom" ? "<br>Stay out and keep pets away." : ""}
+  const looks = result.frames > 1 ? `Average of ${result.frames} looks` : "One photo";
+  const box = document.getElementById("scan-result");
+  box.innerHTML = `
+    <div class="scan-result-head ${color}">
+      <strong>${words}</strong> <span>${percent}% confident</span>
+    </div>
+    <div class="scan-result-body">
+      ${result.label === "bloom" ? "<p>Stay out and keep pets away.</p>" : ""}
+      <p class="small">${looks} · Screening aid, not a diagnosis</p>
+      ${result.label === "bloom" ? `<div id="scan-report">${reportLink}</div>` : ""}
+    </div>
   `;
+  box.hidden = false;
 }
 
-// Asked when the scan keeps seeing a bloom for a few seconds (decided Oct 11),
-// in a sheet. onAnswer(true) for Yes, onAnswer(false) for No (closing the
+// After a bloom answer, the report link for the state the user is in
+export function updateScanReport(reportLink) {
+  const slot = document.getElementById("scan-report");
+  if (slot) slot.innerHTML = reportLink;
+}
+
+export function clearScanResult() {
+  const box = document.getElementById("scan-result");
+  box.innerHTML = "";
+  box.hidden = true;
+}
+
+// Asked when a scan or a photo shows a bloom at 70% or more (decided Oct 11;
+// since Oct 24 after one averaged scan, not a few seconds of frames), in a sheet. onAnswer(true) for Yes, onAnswer(false) for No (closing the
 // sheet counts as No).
 export function askAboutBloom(percent, onAnswer) {
   const sheet = document.getElementById("sheet-bloom");
@@ -227,28 +258,24 @@ export function askAboutBloom(percent, onAnswer) {
   sheet.showModal();
 }
 
-// After the user says Yes: what happened, plus the report link (reportLink
-// = reportHtml() for the user's state)
-export function showBloomSaved(areaName, reportLink) {
-  showScanNote(`Saved on this phone only: <strong>${areaName}</strong> is one level higher today.`, reportLink);
+// After the user says Yes: what happened (the report link is in the result,
+// updated for the user's state)
+export function showBloomSaved(areaName) {
+  showScanNote(`Saved on this phone only: <strong>${areaName}</strong> is one level higher today.`);
 }
 
-export function showBloomNotNear(reportLink) {
-  showScanNote("Not near a covered lake, so no verdict changed.", reportLink);
+export function showBloomNotNear() {
+  showScanNote("Not near a covered lake, so no verdict changed. Report it so it gets checked.");
 }
 
-export function showBloomNoLocation(message, reportLink) {
-  showScanNote(`No location (${message}), so no verdict changed.`, reportLink);
+export function showBloomNoLocation(message) {
+  showScanNote(`No location (${message}), so no verdict changed. Report it so it gets checked.`);
 }
 
 export function clearScanNote() {
   document.getElementById("scan-note").innerHTML = "";
 }
 
-function showScanNote(text, reportLink) {
-  document.getElementById("scan-note").innerHTML = `
-    <p>${text}</p>
-    <p>Stay out and keep pets away. Report it so it gets checked:</p>
-    ${reportLink}
-  `;
+function showScanNote(text) {
+  document.getElementById("scan-note").innerHTML = `<p>${text}</p>`;
 }

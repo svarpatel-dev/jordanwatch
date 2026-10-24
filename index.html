@@ -25,6 +25,10 @@
        change it) and the If exposed button -->
   <header class="topbar">
     <span class="brand">JordanWatch</span>
+    <!-- Reopens the first-open intro (decided Oct 24) -->
+    <button type="button" id="intro-button" class="intro-button" aria-label="How to use JordanWatch" aria-haspopup="dialog">
+      <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
+    </button>
     <button type="button" id="place-button" class="place-button" aria-haspopup="dialog">
       <svg class="i" aria-hidden="true"><use href="#i-locate"></use></svg>
       <span id="place-name">Choose a place</span>
@@ -38,22 +42,6 @@
   <main>
     <!-- Lake tab: the answer first, then the map and why (main.js fills it) -->
     <section id="tab-lake" class="tab lake-tab" aria-label="Lake">
-      <!-- First visit only (decided Oct 21): the app in 3 steps, until the
-           user closes it (welcome.js) -->
-      <section id="welcome" class="welcome" aria-labelledby="welcome-title" hidden>
-        <div class="welcome-head">
-          <h2 id="welcome-title">How JordanWatch works</h2>
-          <button type="button" id="welcome-close" class="icon-button" aria-label="Close these tips">
-            <svg class="i i-md" aria-hidden="true"><use href="#i-close"></use></svg>
-          </button>
-        </div>
-        <ol class="welcome-steps">
-          <li><button type="button" data-step="search"><span class="step-number">1</span>Search a ZIP or lake</button></li>
-          <li><button type="button" data-step="why"><span class="step-number">2</span>See its rating and why</button></li>
-          <li><button type="button" data-step="scan"><span class="step-number">3</span>Scan the water with your camera</button></li>
-        </ol>
-      </section>
-
       <!-- Your lakes (decided Oct 22): the lakes and areas starred on this
            phone, first. Hidden until one is saved (main.js). -->
       <section id="favorites" class="row-wrap favorites" aria-labelledby="favorites-title" hidden>
@@ -161,15 +149,30 @@
       <p id="lake-footer" class="footer"></p>
     </section>
 
-    <!-- Scan tab: the camera (decided Oct 11) -->
+    <!-- Scan tab: the camera (decided Oct 11). Tap to scan or use a photo
+         (decided Oct 24): the live view shows only the camera; a tap freezes
+         the picture and gives one steady result under it. -->
     <section id="tab-scan" class="tab scan-tab" aria-labelledby="scan-title" hidden>
       <h1 id="scan-title" class="tab-title">Scan the water</h1>
-      <p class="small">Point at the water near the shore · Screening aid, not a diagnosis</p>
+      <p class="small">Screening aid, not a diagnosis</p>
       <div class="scan-view">
         <video id="scan-video" playsinline muted hidden></video>
-        <button type="button" id="scan-start" class="scan-start">Start camera</button>
-        <p id="scan-result" class="scan-result scan-plain" aria-live="polite">Camera off. Tap Start camera,
-          then point at the water.</p>
+        <!-- The frozen frame, or the chosen photo -->
+        <canvas id="scan-still" hidden></canvas>
+        <p id="scan-status" class="scan-status" aria-live="polite">Camera off</p>
+        <div id="scan-looking" class="scan-looking" hidden>
+          <span>Looking at the water…</span>
+          <span class="scan-progress"><span id="scan-progress-bar"></span></span>
+        </div>
+        <button type="button" id="scan-shutter" class="scan-shutter" hidden>Scan</button>
+      </div>
+      <div id="scan-result" class="scan-result" aria-live="polite" hidden></div>
+      <div class="scan-actions">
+        <button type="button" id="scan-again" class="button-solid" hidden>Scan again</button>
+        <button type="button" id="scan-start" class="button-solid">Start camera</button>
+        <!-- No "capture" attribute, so phones offer the camera or the library -->
+        <input type="file" id="scan-photo" accept="image/*" class="visually-hidden">
+        <label class="button-line scan-photo-button" for="scan-photo">Use a photo instead</label>
       </div>
       <div id="scan-note" class="scan-note"></div>
     </section>
@@ -181,6 +184,12 @@
         <h2 id="directory-title">Everything in JordanWatch</h2>
         <p class="card-desc">Every feature, and where it is.</p>
         <ul>
+          <li><button type="button" data-go="intro">
+            <svg class="i i-md" aria-hidden="true"><use href="#i-info"></use></svg>
+            <span><strong>How to use JordanWatch</strong>
+              <small>A 5-card tour of the app</small></span>
+            <svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button></li>
           <li><button type="button" data-go="stations">
             <svg class="i i-md" aria-hidden="true"><use href="#i-gauge"></use></svg>
             <span><strong>Live stations</strong>
@@ -351,6 +360,119 @@
     </button>
   </nav>
 
+  <!-- The first-open intro (decided Oct 24): six cards, five with a real
+       screenshot and numbered arrows, explained in full sentences (my ask). Opens by itself on the first visit,
+       then from the (i) button or the More tab (welcome.js). The numbers in
+       each list match the numbers drawn on its picture. -->
+  <dialog id="intro" class="intro" aria-labelledby="intro-label" aria-roledescription="carousel">
+    <div class="intro-top">
+      <p id="intro-label" class="intro-label">How to use JordanWatch · <span id="intro-count">1 of 6</span></p>
+      <button type="button" id="intro-skip" class="intro-skip">Skip</button>
+    </div>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="1 of 6">
+      <h2 tabindex="-1">What JordanWatch does</h2>
+      <p class="intro-lead">JordanWatch tells you whether a lake is likely to have a harmful algal bloom today: the green, paint-like scum that can make people and dogs sick.</p>
+      <p class="intro-lead">It checks about 7,000 US lakes with EPA satellite images, USGS sensors, rain and wind, and gives each lake one rating:</p>
+      <ul class="intro-verdicts" aria-label="The three ratings">
+        <li class="v-avoid">Avoid</li><li class="v-caution">Caution</li><li class="v-low">Low Risk</li>
+      </ul>
+      <figure class="intro-shot">
+        <img src="assets/intro/1-rating.webp" width="780" height="398" alt="Example screen: under the header, a red block shows a lake's name and its rating in large type, marked 1.">
+        <figcaption>Example screen</figcaption>
+      </figure>
+      <ol class="intro-keys">
+        <li><span><strong>Today's rating.</strong> Avoid means stay out of the water. Caution means no swimming, but boating and fishing are OK. Low Risk means the satellite saw no bloom.</span></li>
+      </ol>
+      <p class="intro-lead">It was built for Jordan Lake in North Carolina, where it rates 10 separate areas, and it works the same way for lakes across the country.</p>
+    </section>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="2 of 6" hidden>
+      <h2 tabindex="-1">Find your lake</h2>
+      <p class="intro-lead">The app opens on Jordan Lake as an example. To see the lakes near you:</p>
+      <figure class="intro-shot">
+        <img src="assets/intro/2-find.webp" width="780" height="900" alt="Example screen: 1 marks the place button in the header, 2 the search box that takes a ZIP code or lake name, 3 the Use my location button.">
+        <figcaption>Example screen</figcaption>
+      </figure>
+      <ol class="intro-keys">
+        <li><span><strong>The place button.</strong> Tap the place name at the top of the screen to choose where you are.</span></li>
+        <li><span><strong>Search.</strong> Type a 5-digit ZIP code or part of a lake's name, like "falls" or "tahoe". Matching lakes appear as you type; tap one to open it.</span></li>
+        <li><span><strong>Use my location.</strong> Or let the app use your phone's location. Your exact location stays on your phone.</span></li>
+      </ol>
+    </section>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="3 of 6" hidden>
+      <h2 tabindex="-1">Read the answer</h2>
+      <p class="intro-lead">Every lake uses the same layout, from top to bottom:</p>
+      <figure class="intro-shot">
+        <img src="assets/intro/3-answer.webp" width="780" height="1101" alt="Example screen: 1 marks the large rating word, 2 the What to do chips, 3 the Go here instead button, 4 the Why card listing each signal with its number.">
+        <figcaption>Example screen</figcaption>
+      </figure>
+      <ol class="intro-keys">
+        <li><span><strong>The rating.</strong> Avoid, Caution or Low Risk, with the date of the newest satellite image and whether it's getting better or worse.</span></li>
+        <li><span><strong>What to do today.</strong> Short tips for people, kids and dogs: whether swimming, wading or boating is OK, and to rinse off with tap water after contact.</span></li>
+        <li><span><strong>A better spot nearby.</strong> If the lake is at Avoid or Caution, the app suggests the nearest lake (at Jordan Lake, the nearest area) with a better rating. Tap it to switch.</span></li>
+        <li><span><strong>Why.</strong> One small card per signal: satellite algae, rain and river flow, lake level and wind. The worst signal sets the rating. Tap Details for the exact numbers, and see the 30-day trend chart below.</span></li>
+      </ol>
+    </section>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="4 of 6" hidden>
+      <h2 tabindex="-1">The map and more</h2>
+      <p class="intro-lead">Scroll down to the satellite map and the extra cards:</p>
+      <figure class="intro-shot">
+        <img src="assets/intro/4-map.webp" width="780" height="1242" alt="Example screen: 1 marks the star on a lake tile, 2 the satellite color legend, 3 a rating pin on Falls Lake, which is colored orange and red by the satellite.">
+        <figcaption>Example screen</figcaption>
+      </figure>
+      <ol class="intro-keys">
+        <li><span><strong>Save a lake.</strong> Tap the star on any lake or area. Saved lakes appear in a "Your lakes" row at the top next time.</span></li>
+        <li><span><strong>Satellite colors.</strong> Where the satellite saw algae in the past week, from light yellow (low) to red and purple (very high). No color means clean water, clouds or no satellite pass.</span></li>
+        <li><span><strong>Rating pins.</strong> Every lake has a pin in its rating's color; gray means no recent reading. Tap a pin to open that lake, or tap Full map for a bigger view.</span></li>
+      </ol>
+      <p class="intro-lead">Further down, <strong>Your tap water</strong> shows which lake your drinking water likely comes from (context only, not a tap-water rating), and <strong>Live stations</strong> shows nearby USGS water sensors, each judged by its own state's standards.</p>
+    </section>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="5 of 6" hidden>
+      <h2 tabindex="-1">Right at the shore</h2>
+      <p class="intro-lead">Satellites can't see the shoreline or small ponds, but your phone can.</p>
+      <figure class="intro-shot">
+        <img src="assets/intro/5-shore.webp" width="780" height="824" alt="Example screen: the Scan tab. 1 marks the Scan button in the bottom bar, 2 the Start camera button, 3 the red If exposed button in the header.">
+        <figcaption>Example screen</figcaption>
+      </figure>
+      <ol class="intro-keys">
+        <li><span><strong>The Scan tab.</strong> The round camera button in the bottom bar.</span></li>
+        <li><span><strong>Scan the water.</strong> Tap Start camera, point at the water near the shore, then tap Scan. The model says possible bloom, plants, clear water or not water, and how sure it is. You can also check a photo you already took.</span></li>
+        <li><span><strong>If exposed.</strong> If you, a child or a pet touched bloom water, this red button shows what to do and the numbers to call.</span></li>
+      </ol>
+      <p class="intro-lead">Seeing a bloom? Use <strong>Report a bloom</strong> (in What to do) to send it to your state's environmental agency. The camera is a screening aid, not a diagnosis.</p>
+    </section>
+
+    <section class="intro-card" role="group" aria-roledescription="card" aria-label="6 of 6" hidden>
+      <h2 tabindex="-1">Good to know</h2>
+      <ul class="intro-points">
+        <li><strong>Updated automatically.</strong> New satellite data arrives several times a day. Satellite images are usually 1 to 3 days old, and the app always shows their date.</li>
+        <li><strong>Old data never gives an all-clear.</strong> A reading over a week old can keep a warning, but it can't make a lake Low Risk.</li>
+        <li><strong>Cells, not toxins.</strong> Satellites count algae cells; they can't measure toxins. The ratings use the World Health Organization's cell-count levels as an early warning.</li>
+        <li><strong>Blind spots.</strong> Narrow arms, the shoreline and lakes smaller than about a square kilometer are too small for the satellite, and clouds hide lakes some days. That's what the camera scan is for.</li>
+        <li><strong>More tab.</strong> How it works, data sources and About.</li>
+        <li><strong>Not an official advisory.</strong> Always follow posted signs and your state's advisories.</li>
+      </ul>
+      <p class="intro-lead">Reopen this guide anytime with the <strong>(i)</strong> button at the top.</p>
+    </section>
+
+    <div class="intro-nav">
+      <button type="button" id="intro-back" class="button-line" disabled>Back</button>
+      <div class="intro-dots" role="group" aria-label="Choose a card">
+        <button type="button" aria-label="Card 1 of 6" aria-current="step"></button>
+        <button type="button" aria-label="Card 2 of 6"></button>
+        <button type="button" aria-label="Card 3 of 6"></button>
+        <button type="button" aria-label="Card 4 of 6"></button>
+        <button type="button" aria-label="Card 5 of 6"></button>
+        <button type="button" aria-label="Card 6 of 6"></button>
+      </div>
+      <button type="button" id="intro-next" class="button-solid">Next</button>
+    </div>
+  </dialog>
+
   <!-- The location sheet (decided Oct 20): one box for a ZIP code or a lake name -->
   <dialog id="sheet-place" class="sheet" aria-labelledby="place-title">
     <div class="sheet-body">
@@ -408,10 +530,11 @@
     </div>
   </dialog>
 
-  <!-- The camera's question when it keeps seeing a bloom (decided Oct 11) -->
+  <!-- The camera's question when a scan sees a bloom (decided Oct 11;
+       asked after one averaged scan or a photo since Oct 24) -->
   <dialog id="sheet-bloom" class="sheet" aria-labelledby="bloom-title">
     <div class="sheet-body">
-      <h2 id="bloom-title">The scan keeps seeing a possible bloom (<span id="bloom-percent"></span> confident)</h2>
+      <h2 id="bloom-title">The scan sees a possible bloom (<span id="bloom-percent"></span> confident)</h2>
       <p>Does the water look green, scummy or like spilled paint?</p>
       <div class="answer-buttons">
         <button type="button" class="button-solid" data-answer="yes">Yes</button>
