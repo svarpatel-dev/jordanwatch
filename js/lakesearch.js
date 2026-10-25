@@ -42,10 +42,12 @@ export function searchLakes(lakes, text, place = null, max = MAX_SUGGESTIONS) {
       rank: matchRank(simplifyName(lake.name), wanted)
     }));
 
-  // Like Python's sort with a key: a negative number puts a first
+  // Like Python's sort with a key: a negative number puts a first.
+  // Better name matches first ("falls" finds Falls Lake even when another
+  // lake with "falls" in its name is closer), then the nearest, then the biggest
   matches.sort((a, b) => {
-    if (place) return a.km - b.km;
     if (a.rank !== b.rank) return a.rank - b.rank;
+    if (place) return a.km - b.km;
     return b.lake.km2 - a.lake.km2;
   });
 

@@ -86,8 +86,8 @@ const STEPS = [
   {
     tab: "lake", targets: ["#todo > a.button-line"],
     title: "Report a bloom",
-    lines: [["Seeing a bloom?", "This opens your state's way to report it."],
-            ["No place chosen", "It opens EPA's list of state programs."]]
+    lines: [["Seeing a bloom", "This opens the report form or page of the state the lake is in."],
+            ["No state route", "It opens EPA's list of state programs instead."]]
   },
   {
     tab: "lake", targets: ["#tap-title", "#tap-body .pick-card", "#tap-body .tap-lakes"],

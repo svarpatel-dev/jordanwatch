@@ -81,7 +81,7 @@ export function showAreaConditions(area, lake, where, onPick, onHint = null, sta
 export function showLakeConditions(lake, verdict, where, { star = null, better = null, onOpenLake = null } = {}) {
   const meta = [];
   if (verdict.reading) {
-    const highest = verdict.reading.max ? ` · peak ${compactCells(verdict.reading.max)} cells/mL` : "";
+    const highest = verdict.reading.max ? ` · highest pixel ${compactCells(verdict.reading.max)} cells/mL` : "";
     meta.push(`<span>Satellite ${shortDate(verdict.reading.date)}${highest}</span>`);
   }
 
@@ -100,7 +100,7 @@ export function showLakeConditions(lake, verdict, where, { star = null, better =
          ${icon("chevron-right")}
        </button>`;
   } else if (better) {
-    otherLake = `<p class="now-line">No lake nearby has a better rating today</p>`;
+    otherLake = `<p class="now-line">No lake within 30 miles has a better rating today</p>`;
   }
 
   // No verdict: the short reason (the whole sentence is on the Why card)

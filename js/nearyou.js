@@ -7,10 +7,12 @@
 const MILES_PER_KM = 0.621371;
 const FEET_PER_METER = 3.28084;
 
-// The header's place button: "ZIP 27519", "Your location" or "Choose a place"
+// The header's place button: "27519", "My location" or "Set place". Kept
+// short so it fits next to the logo and If exposed on a phone; the button's
+// label says it's a ZIP code for screen readers.
 export function placeName(place) {
-  if (!place) return "Choose a place";
-  return place.source === "zip" ? `ZIP ${place.zip}` : "Your location";
+  if (!place) return "Set place";
+  return place.source === "zip" ? place.zip : "My location";
 }
 
 // A message under the search box, e.g. "Finding your location…" or what

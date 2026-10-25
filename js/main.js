@@ -902,7 +902,7 @@ async function useZip(zip) {
 function choosePlace(place) {
   chosenPlace = place;
   savePlaceChoice(place.source === "zip" ? { source: "zip", zip: place.zip } : { source: "gps" });
-  document.getElementById("place-name").textContent = placeName(place);
+  showPlaceName(place);
   showNearYouStatus(describePlace(place));
   nearClearButton.hidden = false;
   closeSheet("sheet-place");
@@ -945,6 +945,18 @@ async function loadStationsNear(place) {
   }
 }
 
+// The header's place button: a short name on the button, and the whole
+// thing ("Place: ZIP 27519") for screen readers
+function showPlaceName(place) {
+  document.getElementById("place-name").textContent = placeName(place);
+  const button = document.getElementById("place-button");
+  if (!place) {
+    button.setAttribute("aria-label", "Set your place");
+  } else {
+    button.setAttribute("aria-label", place.source === "zip" ? `Place: ZIP ${place.zip}` : "Place: my location");
+  }
+}
+
 // "Clear": forget the choice and go back to the Jordan Lake view
 function clearPlace() {
   chosenPlace = null;
@@ -953,7 +965,7 @@ function clearPlace() {
   suggestionsBox.innerHTML = SEARCH_HINT;
   nearClearButton.hidden = true;
   showNearYouStatus("");
-  document.getElementById("place-name").textContent = placeName(null);
+  showPlaceName(null);
   selected = null;
   rowCenter = null;
   lakeExtras.clear();
