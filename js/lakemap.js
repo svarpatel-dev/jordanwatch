@@ -79,10 +79,14 @@ export function showWaterSources(map, sources) {
   if (!sourceLayer) sourceLayer = L.layerGroup().addTo(map);
   sourceLayer.clearLayers();
   for (const { lake, name } of sources) {
+    // Up and to the right of the lake's rating pin, not on top of it, so the
+    // pin can still be tapped. iconAnchor is the point of the badge that sits
+    // on the lake: (-6, 32) puts the badge 6 px right of it and 6 px above it.
     const badge = L.divIcon({
       className: "source-pin",
       html: '<svg class="i i-md" aria-hidden="true"><use href="#i-droplet"></use></svg>',
-      iconSize: [26, 26]
+      iconSize: [26, 26],
+      iconAnchor: [-6, 32]
     });
     L.marker([lake.lat, lake.lng], { icon: badge, title: `Your tap water source: ${name}` })
       .addTo(sourceLayer)
