@@ -265,7 +265,7 @@ export function showBloomSaved(areaName) {
 }
 
 export function showBloomNotNear() {
-  showScanNote("Not near a covered lake, so no verdict changed. Report it so it gets checked.");
+  showScanNote("Not within about a mile of a Jordan Lake area, so no rating changed. Report it so it gets checked.");
 }
 
 export function showBloomNoLocation(message) {

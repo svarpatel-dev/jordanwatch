@@ -33,7 +33,7 @@ const STEPS = [
     tab: "lake", targets: ["#now .now-where", "#now .now-verdict", "#now .now-meta"],
     title: "Today's rating",
     lines: [["Rating", "Avoid, Caution or Low Risk for harmful algal blooms."],
-            ["Below it", "The satellite image date, and whether it's getting better or worse."]]
+            ["Below it", "The satellite image date and, for Jordan Lake areas, whether it's getting better or worse."]]
   },
   {
     tab: "lake", targets: ["#now .now-star"],
@@ -62,7 +62,7 @@ const STEPS = [
   {
     tab: "lake", targets: [".legend-strip", "#map"],
     title: "The map",
-    lines: [["Colors", "Algae the satellite saw this past week: yellow is low, red and purple are very high. No color means clean water, clouds or no pass."],
+    lines: [["Colors", "Algae the satellite saw this past week: yellow is low, red and purple are above the Avoid level (100,000 cells/mL). No color means clean water, clouds or no pass."],
             ["Pins", "One per lake in its rating's color; gray means no recent reading. Tap a pin to open that lake, or Full map for a bigger view."]]
   },
   {

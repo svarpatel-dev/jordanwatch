@@ -14,7 +14,7 @@ Built for Jordan Lake in North Carolina, where it rates 10 separate areas of the
 
 | Feature | What you get |
 |---|---|
-| **Today's rating** | Avoid / Caution / Low Risk for the lake (or Jordan Lake area) nearest you, with the satellite image date and whether it's getting better or worse |
+| **Today's rating** | Avoid / Caution / Low Risk for the lake (or Jordan Lake area) nearest you, with the satellite image date and, for Jordan Lake areas, whether it's getting better or worse |
 | **Why this rating** | One small card per signal: satellite algae, rain and river flow, lake level, wind. The worst signal sets the rating |
 | **What to do** | Short advice for people, kids and dogs, plus a link to report a bloom to your state |
 | **Go here instead** | The nearest area or lake with a better rating today (beaches preferred) |
@@ -51,8 +51,8 @@ Satellites count algae cells; they can't measure toxins. Health agencies (EPA, N
 
 ### Accuracy and testing
 
-- **Camera:** 81.1% correct on the 265 held-out photos, run through the app's own code. When the model is at least 70% confident (216 of 265 photos), it's right 90.7% of the time; below that it says "Uncertain". It caught 55 of 72 blooms.
-- **Satellite colors:** JordanWatch's per-lake readings from EPA's nationwide image match EPA's own per-lake counts within a median of about 1% (18 lakes in 9 states).
+- **Camera:** 81.1% correct on the 265 held-out photos, run through the app's own code (the Colab notebook's own Keras evaluation on the same photos prints 82.6%; the app's TensorFlow.js path and its photo preprocessing differ slightly). When the model is at least 70% confident (216 of 265 photos), it's right 90.7% of the time; below that it says "Uncertain". It caught 55 of 72 blooms.
+- **Satellite colors:** JordanWatch's per-lake readings from EPA's nationwide image match EPA's own per-lake counts within a median of about 1% (18 lakes in 9 states, checked Oct 15, 2026).
 - **Forecast, tested and not shipped:** a bloom forecast beat "same as the last image" on 2025–26 but failed on 2024 and had no skill in winter, so the app shows a labeled trend instead.
 
 ### Limits
