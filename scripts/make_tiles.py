@@ -305,6 +305,12 @@ def main():
     drawing = f"radar {RADAR_VERSION}, shorelines {shore_hash}"
 
     levels, grid, cleaned = stack_newest_first(images, lakes)
+    if not levels.any():
+        # EPA never has zero detections in the whole country: the images
+        # couldn't be read (e.g. colors the table doesn't know, Oct 26). Fail
+        # soft like a failed download, so the last good tiles stay.
+        print("No readable satellite pixels in EPA's images; keeping the previous tiles")
+        return
     changed = what_changed(levels, grid, state_dir, drawing)
     if changed is not None and changed.size == 0:
         print("Satellite levels unchanged since the last run; keeping the tiles")

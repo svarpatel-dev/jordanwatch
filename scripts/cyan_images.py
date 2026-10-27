@@ -51,6 +51,12 @@ HEADERS = {"User-Agent": "JordanWatch student project (github.com/svarpatel-dev/
 COLOR_TABLE = Path(__file__).resolve().parent / "epa_cyan_colors.json"
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# EPA's images don't always use the table's exact colors: since Oct 22, 2026
+# every color is off by 1 on some channels (a rounding change on EPA's side),
+# which made every pixel "unknown". A color within this much of a table
+# color, on every channel, counts as that color (neighbors in the table are
+# 1-3 apart, so a one-off match is at most one level away).
+COLOR_TOLERANCE = 2
 EARTH_RADIUS_M = 6378137        # the map projection's Earth (Web Mercator)
 SUPERSAMPLE = 4                 # outline drawing detail, see prepare_masks
 
@@ -143,19 +149,34 @@ def image_levels(image):
         packed |= np.asarray(image.getchannel(band)).ravel()[drawn].astype(np.int64) << shift
 
     # Look every color up in the table (sorted search, like bisect in Python).
-    # A color that isn't in the table is left as 0.
     colors = np.array(sorted(int(c[1:], 16) for c in table))
     color_levels = np.array([table[f"#{c:06x}"] for c in colors], dtype=np.uint8)
     position = np.searchsorted(colors, packed).clip(0, len(colors) - 1)
     exact = colors[position] == packed
+    found = np.where(exact, color_levels[position], 0)
+
+    # A color that isn't in the table gets the nearest table color, if it's
+    # within COLOR_TOLERANCE on every channel; otherwise it stays 0. Only the
+    # distinct colors are compared (a few hundred), not every pixel.
+    unknown = 0
+    if not exact.all():
+        odd, back = np.unique(packed[~exact], return_inverse=True)
+        odd_rgb = np.stack([(odd >> 16) & 255, (odd >> 8) & 255, odd & 255], axis=1)
+        table_rgb = np.stack([(colors >> 16) & 255, (colors >> 8) & 255, colors & 255], axis=1)
+        gap = np.abs(odd_rgb[:, None, :] - table_rgb[None, :, :])      # each odd color vs. each table color
+        nearest = (gap ** 2).sum(axis=2).argmin(axis=1)
+        close = gap.max(axis=2)[np.arange(len(odd)), nearest] <= COLOR_TOLERANCE
+        matched = np.where(close, color_levels[nearest], 0).astype(np.uint8)
+        found[~exact] = matched[back]
+        unknown = int((~close[back]).sum())
 
     levels = np.zeros(width * height, dtype=np.uint8)
-    levels[drawn] = np.where(exact, color_levels[position], 0)
+    levels[drawn] = found
 
     grid = {"width": width, "height": height, "bounds": bounds,
             "x0": mercator_x(bounds["left"]), "x1": mercator_x(bounds["right"]),
             "y0": mercator_y(bounds["top"]), "y1": mercator_y(bounds["bottom"]),
-            "unknownColors": int((~exact).sum())}
+            "unknownColors": unknown}
     return levels.reshape(height, width), grid
 
 
