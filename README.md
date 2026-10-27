@@ -2,7 +2,7 @@
 
 **Is the lake OK today?** JordanWatch rates about 7,000 US lakes **Avoid**, **Caution** or **Low Risk** for harmful algal blooms (cyanobacteria), so swimmers, paddlers and dog owners know before they hit the water.
 
-**Live app:** https://jordanwatch.app
+**Live app:** https://jordanwatch.app · **License:** MIT (see `LICENSE`)
 
 Built for Jordan Lake in North Carolina, where it rates 10 separate areas of the lake, and it works the same way for lakes across the country. Free, no account, no ads.
 
