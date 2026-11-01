@@ -1,5 +1,5 @@
 {"source":"EPA CyAN per-lake pixel counts (about 300 m pixels)","note":"Each lake: [day, level, day, level, ...]. day = days since 1970-01-01 (a satellite image day); level = EPA's satellite level (0-253) that at least 5% of the pixels the satellite saw reached; 0 = below detection. cells/mL = 10^(0.012 x level - 4.2) x 100,000,000. Days with no usable look are left out. Last 120 days.","lakes":{
-"232875":[20752,0,20753,0],
+"232875":[20752,0,20753,0,20756,0,20757,0],
 "354888":[20749,0,20752,0,20753,0,20754,0,20756,0],
 "1078473":[20735,190,20738,184,20741,179,20745,187,20746,164,20747,185,20748,168,20749,177,20752,173,20753,170,20756,147],
 "1078735":[20735,138,20738,85,20741,147,20745,132,20746,120,20748,147,20749,131,20750,139,20751,165,20752,128,20753,140,20754,146,20756,130],
