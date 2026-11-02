@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-11-02T06:04:35+00:00",
+  "updatedAt": "2026-11-02T15:53:07+00:00",
   "points": [
     {
       "id": "north",
@@ -145,15 +145,15 @@
       "lat": 35.703,
       "lng": -79.042,
       "status": "ok",
-      "imageDate": "2026-10-30",
-      "newestImageDate": "2026-10-30",
-      "cellsPerMl": 210863,
-      "maxCellsPerMl": 310456,
+      "imageDate": "2026-10-31",
+      "newestImageDate": "2026-10-31",
+      "cellsPerMl": 328095,
+      "maxCellsPerMl": 432514,
       "validPixels": 6,
-      "frequency": "Daily",
+      "frequency": "Weekly",
       "belowDetection": false,
-      "previousDate": "2026-10-29",
-      "previousCellsPerMl": 248886
+      "previousDate": "2026-10-30",
+      "previousCellsPerMl": 210863
     },
     {
       "id": "new-hope-overlook",
