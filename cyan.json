@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN (Cyanobacteria Assessment Network), satellite estimate",
-  "updatedAt": "2026-11-04T19:46:59+00:00",
+  "updatedAt": "2026-11-05T06:46:25+00:00",
   "points": [
     {
       "id": "north",
@@ -9,15 +9,15 @@
       "lat": 35.81,
       "lng": -78.99,
       "status": "ok",
-      "imageDate": "2026-10-31",
-      "newestImageDate": "2026-10-31",
-      "cellsPerMl": 731139,
-      "maxCellsPerMl": 887156,
+      "imageDate": "2026-11-03",
+      "newestImageDate": "2026-11-03",
+      "cellsPerMl": 691831,
+      "maxCellsPerMl": 794328,
       "validPixels": 6,
-      "frequency": "Weekly",
+      "frequency": "Daily",
       "belowDetection": false,
-      "previousDate": "2026-10-30",
-      "previousCellsPerMl": 636796
+      "previousDate": "2026-10-31",
+      "previousCellsPerMl": 731139
     },
     {
       "id": "crosswinds",
