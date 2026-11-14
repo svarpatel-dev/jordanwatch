@@ -1,6 +1,6 @@
 {
   "source": "EPA CyAN daily satellite estimates at JordanWatch's ten Jordan Lake points",
-  "updatedAt": "2026-11-13T19:41:55+00:00",
+  "updatedAt": "2026-11-14T06:22:53+00:00",
   "note": "One value per day, cells/mL, last 120 days. 0 = below detection (a clear whole-lake image, filled like cyan.json). Missing days: clouds or no satellite pass.",
   "points": {
     "north": [],
